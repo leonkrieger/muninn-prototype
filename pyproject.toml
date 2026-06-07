@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "muninn-prototype"
+version = "0.0.1"
+description = "Python software prototype for the Delta Suit Spacesuit Simulator of the Austrian Space Forum"
+
+readme = "README.md"
+
+requires-python = ">=3.11"
+
+authors = [
+    { name = "Leon Krieger" }
+]
+
+dependencies = [
+    "paho-mqtt>=2.0.0",
+]
+
+[project.scripts]
+muninn = "muninn_prototype.main:main"
