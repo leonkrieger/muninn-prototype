@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "muninn-prototype"
+name = "muninn_prototype"
 version = "0.0.1"
 description = "Python software prototype for the Delta Suit Spacesuit Simulator of the Austrian Space Forum"
 
@@ -17,6 +17,7 @@ authors = [
 
 dependencies = [
     "paho-mqtt>=2.0.0",
+    "pypubsub>=4.0.0",
 ]
 
 [project.scripts]

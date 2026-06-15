@@ -1,0 +1,15 @@
+[Unit]
+Description=Muninn Application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/muninn
+ExecStart=/home/pi/muninn/.venv/bin/muninn
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
