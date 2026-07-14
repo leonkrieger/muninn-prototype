@@ -9,15 +9,21 @@ from muninn_prototype.utils.get_project_root import get_project_root
 from muninn_prototype.modules import master_module
 
 root = get_project_root(Path(__file__).resolve())
+with open(root / "config" / "defaults.toml", "rb") as defaults_file:
+    configuration = tomllib.load(defaults_file)
+
 logs_dir = root / "logs"
 logs_dir.mkdir(parents=True, exist_ok=True)
 
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 log_filename = logs_dir / f"run_{timestamp}.log"
 
+log_level_name = str(configuration.get("logging", {}).get("level", "INFO")).upper()
+log_level = getattr(logging, log_level_name, logging.INFO)
+
 logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=log_level,
+    format='%(asctime)s - %(module)s - %(levelname)s - %(message)s',
     handlers=[
         logging.FileHandler(str(log_filename)),
         logging.StreamHandler()
@@ -38,7 +44,7 @@ def print_welcome_message():
 
 def main():
     print_welcome_message()
-    master_module.initiate_suit()
+    master_module.initiate_suit(configuration)
 
     shutting_down = False
 
