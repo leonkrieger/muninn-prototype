@@ -1,2 +1,16 @@
 [logging]
-level = "INFO"
+level = "DEBUG"
+
+[heartbeat]
+hb_freq_s = 10
+
+[[sensors]]
+name = "bme680"
+sensor = "bme680"
+poll_hz = 0.5
+
+[[sensors]]
+name = "emc2101"
+sensor = "emc2101"
+i2c_address = 0x4C
+poll_hz = 0.5
