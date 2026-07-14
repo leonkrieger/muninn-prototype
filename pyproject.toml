@@ -18,6 +18,9 @@ authors = [
 dependencies = [
     "paho-mqtt>=2.0.0",
     "pypubsub>=4.0.0",
+    "adafruit-blinka>=8.0.0",
+    "adafruit-circuitpython-bme680>=2.0.0",
+    "adafruit-circuitpython-emc2101",
 ]
 
 [project.scripts]
