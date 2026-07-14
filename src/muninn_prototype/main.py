@@ -1,6 +1,7 @@
 import logging 
 import tomllib
-import threading
+import signal
+import time
 
 from pathlib import Path
 from datetime import datetime
@@ -38,7 +39,21 @@ def print_welcome_message():
 def main():
     print_welcome_message()
     master_module.initiate_suit()
-    threading.Event().wait()
+
+    shutting_down = False
+
+    def handle_sigint(_signum, _frame):
+        nonlocal shutting_down
+        shutting_down = True
+        logger.info("Received Ctrl+C. Shutting down.")
+
+    signal.signal(signal.SIGINT, handle_sigint)
+
+    try:
+        while not shutting_down:
+            time.sleep(1)
+    finally:
+        signal.signal(signal.SIGINT, signal.default_int_handler)
 
 if __name__ == "__main__":
     main()
