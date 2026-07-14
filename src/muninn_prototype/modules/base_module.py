@@ -4,13 +4,17 @@ import time
 
 
 class BaseModule:
-    def __init__(self):
+    def __init__(self, heartbeat_interval_s: float = 5.0):
         self._heartbeat_thread = None
+        self._heartbeat_interval_s = heartbeat_interval_s
+
+    def configure_heartbeat_interval(self, heartbeat_interval_s: float):
+        self._heartbeat_interval_s = heartbeat_interval_s
 
     def heartbeat(self):
         while True:
             pub.sendMessage("heartbeat", module=self.__class__.__name__)
-            time.sleep(5)
+            time.sleep(self._heartbeat_interval_s)
 
     def initiate(self):
         pub.sendMessage("status", message="ok")
