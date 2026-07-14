@@ -13,5 +13,5 @@ MODULES = [
     command_module,
     optics_module,
     publisher_module,
-    sensor_module,
+    sensor_module.SensorModule(),
 ]

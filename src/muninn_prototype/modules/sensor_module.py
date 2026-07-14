@@ -1,4 +1,4 @@
-from pubsub import pub
+from muninn_prototype.modules import base_module
 
-def initiate():
-    pub.sendMessage("status", message="ok")
+class SensorModule(base_module.BaseModule):
+    pass
