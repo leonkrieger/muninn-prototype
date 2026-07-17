@@ -23,7 +23,7 @@ log_level = getattr(logging, log_level_name, logging.INFO)
 
 logging.basicConfig(
     level=log_level,
-    format='%(asctime)s - %(module)s - %(levelname)s - %(message)s',
+    format='[ %(asctime)s ] [%(module)s] [%(levelname)s] [%(message)s]',
     handlers=[
         logging.FileHandler(str(log_filename)),
         logging.StreamHandler()
