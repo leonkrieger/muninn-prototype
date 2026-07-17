@@ -1,7 +1,9 @@
 from pubsub import pub
 import threading
 import time
+import logging
 
+logger = logging.getLogger(__name__)
 
 class BaseModule:
     def __init__(self, heartbeat_interval_s: float = 5.0):
@@ -17,8 +19,8 @@ class BaseModule:
             time.sleep(self._heartbeat_interval_s)
 
     def initiate(self):
-        pub.sendMessage("status", message="ok")
-
+        logger.info("Initiating %s", self.__class__.__name__)
+        
         self._heartbeat_thread = threading.Thread(
             target=self.heartbeat,
             daemon=True
