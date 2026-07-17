@@ -1,3 +1,10 @@
+[suit]
+suitID = "delta-01"
+
+[publisher]
+pub_backend = "zeromq"
+endpoint = "tcp://*:5555"
+
 [logging]
 level = "DEBUG"
 
