@@ -91,11 +91,36 @@ class SensorModule(base_module.BaseModule):
 
     def initiate(self, configuration: dict[str, Any] | None = None):
         super().initiate()
-        
+
         if not self._configured_sensors:
             self._sensors = load_default_sensors(configuration)
-            
+
         for sensor in self._sensors:
+            try:
+                # Adapter construction is lazy, so perform the first I2C
+                # access synchronously.  Otherwise an unavailable device is
+                # reported only after its polling thread has already started.
+                sensor.adapter.read(sensor.i2c_address)
+            except Exception as error:
+                if _is_missing_i2c_device_error(error):
+                    logger.error(
+                        "Skipping sensor %s at address 0x%02X because the device is unavailable: %s",
+                        sensor.name,
+                        sensor.i2c_address,
+                        error,
+                    )
+                    pub.sendMessage("error", message="", error_code="sensor_unavailable")
+                    continue
+
+                logger.error(
+                    "Skipping sensor %s at address 0x%02X because initialization failed: %s",
+                    sensor.name,
+                    sensor.i2c_address,
+                    error,
+                )
+                pub.sendMessage("error", message="", error_code="sensor_unavailable")
+                continue
+
             sensor_thread = threading.Thread(
                 target=self._poll_sensor,
                 args=(sensor,),

@@ -7,6 +7,8 @@ from muninn_prototype.modules.base_module import BaseModule
 
 logger = logging.getLogger(__name__)
 
+_INITIALIZATION_OK_DISPLAY_S = 5.0
+
 def on_heartbeat(module):
     logger.info(f"Received heartbeat from: {module}")
 
@@ -26,14 +28,34 @@ def initiate_suit(configuration: dict | None = None):
     logger.info("Initiating suit ...")
 
     heartbeat_interval_s = float((configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0))
+    initialization_failed = False
 
-    for module in MODULES:
+    def on_initialization_error(message=None, status=None, error_code=None, **_):
+        nonlocal initialization_failed
+        initialization_failed = True
+        logger.error("Module initialization reported an error: %s", error_code)
+
+    # Subscribe before starting modules so errors raised during initiation are
+    # captured before the success message is considered.
+    pub.subscribe(on_initialization_error, "error")
+
+    for index, module in enumerate(MODULES):
         if isinstance(module, BaseModule):
             module.configure_heartbeat_interval(heartbeat_interval_s)
 
         _initiate_module(module, configuration)
-        time.sleep(1)
 
+        # DisplayModule is first in MODULES, so it is ready to receive INIT
+        # before the rest of the suit is initialized.
+        if index == 0:
+            pub.sendMessage("display", text="INIT")
+
+    if not initialization_failed:
+        pub.sendMessage("display", text="INOK")
+    else:
+        logger.error("Suit initialization completed with errors")
     pub.subscribe(on_heartbeat, "heartbeat")
-
+    time.sleep(_INITIALIZATION_OK_DISPLAY_S)
+    if not initialization_failed:
+        pub.sendMessage("display", text="    ")
     logger.info("Suit initiated")
