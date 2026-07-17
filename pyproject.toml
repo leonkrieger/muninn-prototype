@@ -22,6 +22,7 @@ dependencies = [
     "adafruit-blinka>=8.0.0",
     "adafruit-circuitpython-bme680>=2.0.0",
     "adafruit-circuitpython-emc2101",
+    "sparkfun-qwiic-alphanumeric>=2.0.0",
 ]
 
 [project.scripts]
