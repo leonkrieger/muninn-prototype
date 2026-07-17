@@ -13,13 +13,10 @@ from pubsub import pub
 
 from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
 from muninn_prototype.utils.get_project_root import get_project_root
+from muninn_prototype.modules.base_module import BaseModule
 
 
 logger = logging.getLogger(__name__)
-
-_CSV_LOCK = threading.Lock()
-_CSV_PATH: Path | None = None
-_SUBSCRIBED = False
 
 _CSV_FIELDNAMES = ["reading_id", "timestamp", "sensor_name", "sensor_type", "measurement", "unit", "value"]
 
@@ -61,33 +58,31 @@ def _reading_to_row(reading: SensorReading) -> dict[str, str]:
     }
 
 
-def _on_reading(reading: SensorReading) -> None:
-    if _CSV_PATH is None:
-        logger.debug("Failed to write backup for %s because the backup module is not initialized", reading.sensor_name or "unknown sensor")
-        return
+class BackupModule(BaseModule):
+    def __init__(self):
+        super().__init__()
+        self._csv_lock = threading.Lock()
+        self._csv_path: Path | None = None
+        self._subscribed = False
 
-    row = _reading_to_row(reading)
+    def _on_reading(self, reading: SensorReading) -> None:
+        if self._csv_path is None:
+            logger.debug("Backup module is not initialized")
+            return
+        try:
+            with self._csv_lock:
+                _ensure_header(self._csv_path)
+                with self._csv_path.open("a", newline="", encoding="utf-8") as csv_file:
+                    csv.DictWriter(csv_file, fieldnames=_CSV_FIELDNAMES).writerow(_reading_to_row(reading))
+        except Exception:
+            logger.debug("Failed to write backup for reading from %s", reading.sensor_name or "unknown sensor", exc_info=True)
+        else:
+            logger.debug("Successfully wrote backup for reading %s from %s", reading.reading_id, reading.sensor_name or "unknown sensor")
 
-    try:
-        with _CSV_LOCK:
-            _ensure_header(_CSV_PATH)
-            with _CSV_PATH.open("a", newline="", encoding="utf-8") as csv_file:
-                writer = csv.DictWriter(csv_file, fieldnames=_CSV_FIELDNAMES)
-                writer.writerow(row)
-    except Exception:
-        logger.debug("Failed to write backup for reading from %s", reading.sensor_name or "unknown sensor", exc_info=True)
-    else:
-        logger.debug("Successfully wrote backup for reading %s from %s", reading.reading_id, reading.sensor_name or "unknown sensor")
-
-
-def initiate(configuration: dict[str, Any] | None = None) -> None:
-    global _CSV_PATH, _SUBSCRIBED
-
-    _CSV_PATH = _configured_csv_path(configuration)
-
-    if not _SUBSCRIBED:
-        pub.subscribe(_on_reading, "readings")
-        _SUBSCRIBED = True
-
-    logger.debug("Started backup module; writing sensor readings to %s", _CSV_PATH)
-    logger.info("Backing up sensor readings to %s", _CSV_PATH)
+    def initiate(self, configuration: dict[str, Any] | None = None) -> None:
+        self._csv_path = _configured_csv_path(configuration)
+        if not self._subscribed:
+            pub.subscribe(self._on_reading, "readings")
+            self._subscribed = True
+        super().initiate()
+        logger.info("Backing up sensor readings to %s", self._csv_path)

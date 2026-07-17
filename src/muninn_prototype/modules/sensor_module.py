@@ -77,6 +77,7 @@ def load_default_sensors(configuration: dict[str, Any] | None) -> list[SensorCon
 class SensorModule(base_module.BaseModule):
     def __init__(self, sensors: list[SensorConfig] | None = None):
         super().__init__()
+        self._configured_sensors = sensors is not None
         self._sensors = list(sensors or [])
         self._sensor_threads: list[threading.Thread] = []
         self._stop_event = threading.Event()
@@ -88,9 +89,12 @@ class SensorModule(base_module.BaseModule):
             self._next_reading_id += 1
             return self._next_reading_id
 
-    def initiate(self):
+    def initiate(self, configuration: dict[str, Any] | None = None):
         super().initiate()
-
+        
+        if not self._configured_sensors:
+            self._sensors = load_default_sensors(configuration)
+            
         for sensor in self._sensors:
             sensor_thread = threading.Thread(
                 target=self._poll_sensor,

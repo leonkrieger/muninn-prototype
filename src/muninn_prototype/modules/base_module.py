@@ -26,3 +26,5 @@ class BaseModule:
             daemon=True
         )
         self._heartbeat_thread.start()
+
+        logger.info("%s initiated", self.__class__.__name__)
