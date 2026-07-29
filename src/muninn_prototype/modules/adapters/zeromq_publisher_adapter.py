@@ -32,6 +32,11 @@ class ZeroMQPublisherAdapter(PublisherAdapter):
             payload.encode("utf-8"),
         ])
 
+    def publish_multipart(self, topic: str, metadata: str, payload: bytes) -> None:
+        if self._socket is None:
+            raise RuntimeError("ZeroMQ publisher is not connected")
+        self._socket.send_multipart([topic.encode(), metadata.encode(), payload])
+
     def close(self) -> None:
         if self._socket is None:
             return

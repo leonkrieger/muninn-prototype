@@ -12,6 +12,9 @@ class PublisherAdapter(ABC):
     def publish(self, topic: str, payload: str) -> None:
         raise NotImplementedError
 
+    def publish_multipart(self, topic: str, metadata: str, payload: bytes) -> None:
+        raise NotImplementedError
+
     @abstractmethod
     def close(self) -> None:
         raise NotImplementedError

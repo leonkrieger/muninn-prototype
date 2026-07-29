@@ -12,6 +12,7 @@ from pubsub import pub
 from muninn_prototype.modules.adapters.publisher_adapter import PublisherAdapter
 from muninn_prototype.modules.adapters.publisher_adapter_factory import build_publisher_adapter
 from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
+from muninn_prototype.modules.optics_module import ImageFrame
 from muninn_prototype.modules.base_module import BaseModule
 
 
@@ -73,6 +74,7 @@ class PublisherModule(BaseModule):
         self._publisher_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._publisher_adapter: PublisherAdapter | None = None
+        self._images_subscribed = False
 
     def _publish_loop(self) -> None:
         adapter = self._publisher_adapter
@@ -110,12 +112,27 @@ class PublisherModule(BaseModule):
         if not self._subscribed:
             pub.subscribe(self._on_reading, "readings")
             self._subscribed = True
+        if not self._images_subscribed:
+            pub.subscribe(self._on_image, "images")
+            self._images_subscribed = True
         if self._publisher_thread is None or not self._publisher_thread.is_alive():
             self._stop_event.clear()
             self._publisher_thread = threading.Thread(target=self._publish_loop, daemon=True, name="PublisherModule:ZeroMQ")
             self._publisher_thread.start()
         super().initiate()
         logger.info("Started publisher module for suit %s", self._suit_id)
+
+    def _on_image(self, frame: ImageFrame, frame_id: int = 0) -> None:
+        adapter = self._publisher_adapter
+        if adapter is None:
+            return
+        metadata = json.dumps({"frame_id": frame_id, "timestamp": frame.timestamp.isoformat(),
+                               "width": frame.width, "height": frame.height, "format": frame.format},
+                              separators=(",", ":"))
+        try:
+            adapter.publish_multipart(f"{self._suit_id}/images", metadata, frame.image)
+        except Exception:
+            logger.exception("Failed to publish image frame %s", frame_id)
 
     def shutdown(self) -> None:
         self._stop_event.set()
