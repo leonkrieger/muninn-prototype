@@ -60,6 +60,8 @@ def main():
             time.sleep(1)
     finally:
         signal.signal(signal.SIGINT, signal.default_int_handler)
+        master_module.shutdown_suit()
+        logger.info("Shutdown complete.")
 
 if __name__ == "__main__":
     main()
