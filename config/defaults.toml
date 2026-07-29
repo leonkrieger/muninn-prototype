@@ -11,6 +11,17 @@ level = "DEBUG"
 [heartbeat]
 hb_freq_s = 10
 
+[optics]
+enabled = true
+feed_fps = 0.2
+width = 640
+height = 480
+jpeg_quality = 70
+
+[fan]
+enabled = true
+i2c_address = 0x4C
+
 [[sensors]]
 name = "bme680"
 sensor = "bme680"

@@ -59,3 +59,16 @@ def initiate_suit(configuration: dict | None = None):
     if not initialization_failed:
         pub.sendMessage("display", text="    ")
     logger.info("Suit initiated")
+
+
+def shutdown_suit() -> None:
+    """Stop modules in reverse startup order."""
+    logger.info("Shutting down suit modules")
+    for module in reversed(MODULES):
+        shutdown = getattr(module, "shutdown", None)
+        if shutdown is None:
+            continue
+        try:
+            shutdown()
+        except Exception:
+            logger.exception("Failed to shut down %s", module.__class__.__name__)

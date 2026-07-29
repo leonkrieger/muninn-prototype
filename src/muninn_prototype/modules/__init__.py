@@ -4,6 +4,7 @@ from . import backup_module
 from . import command_module
 from . import display_module
 from . import optics_module
+from . import fan_module
 from . import publisher_module
 from .sensor_module import SensorModule
 from .adapters.bme680_sensor_adapter import BME680SensorAdapter
@@ -19,6 +20,7 @@ MODULES = [
 #    analyzing_module.AnalyzingModule(),
 #    audio_module,
 #    command_module,
-#    optics_module,
+    optics_module.OpticsModule(),
+    fan_module.FanModule(),
     SensorModule(),
 ]

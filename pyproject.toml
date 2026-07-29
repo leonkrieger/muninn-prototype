@@ -23,6 +23,7 @@ dependencies = [
     "adafruit-circuitpython-bme680>=2.0.0",
     "adafruit-circuitpython-emc2101",
     "sparkfun-qwiic-alphanumeric>=2.0.0",
+    "picamera2>=0.3.24",
 ]
 
 [project.scripts]
