@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 DISPLAY_TOPIC = "display"
 STATUS_TOPIC = "error"
 DISPLAY_WIDTH = 4
+BUTTON_GPIO = 16  # BCM numbering; physical pin 36
 
 ERROR_CODE_REGISTRY: dict[str, str] = {
     "display_unavailable": "DERR",
@@ -29,6 +30,7 @@ class DisplayModule(BaseModule):
         self._available = False
         self._write_lock = threading.Lock()
         self._subscribed = False
+        self._clear_button: Any | None = None
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         del configuration  # Reserved for possible future display configuration.
@@ -74,8 +76,37 @@ class DisplayModule(BaseModule):
             pub.subscribe(self._on_status_message, STATUS_TOPIC)
             self._subscribed = True
 
+        self._setup_clear_button()
+
         # The module remains alive in degraded mode when no hardware exists.
         super().initiate()
+
+    def _setup_clear_button(self) -> None:
+        """Configure the active-low clear button, if GPIO is available."""
+        try:
+            from gpiozero import Button
+
+            # The button is wired between BCM GPIO 16 and ground. The
+            # internal pull-up makes an unpressed button HIGH and a pressed
+            # button LOW, which gpiozero reports through when_pressed.
+            self._clear_button = Button(
+                BUTTON_GPIO,
+                pull_up=True,
+                bounce_time=0.1,
+            )
+            self._clear_button.when_pressed = self._clear_display
+            logger.info("Display clear button configured on BCM GPIO %d", BUTTON_GPIO)
+        except (ImportError, OSError, RuntimeError) as error:
+            logger.warning("Display clear button unavailable: %s", error)
+
+    @staticmethod
+    def _clear_display() -> None:
+        pub.sendMessage(DISPLAY_TOPIC, text=" " * DISPLAY_WIDTH)
+
+    def shutdown(self) -> None:
+        if self._clear_button is not None:
+            self._clear_button.close()
+            self._clear_button = None
 
     def _on_status_message(
         self,

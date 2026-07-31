@@ -20,6 +20,7 @@ dependencies = [
     "pypubsub>=4.0.0",
     "pyzmq>=26.0.0",
     "adafruit-blinka>=8.0.0",
+    "gpiozero>=2.0.0",
     "adafruit-circuitpython-bme680>=2.0.0",
     "adafruit-circuitpython-emc2101",
     "sparkfun-qwiic-alphanumeric>=2.0.0",

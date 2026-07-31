@@ -2,6 +2,14 @@
 A Python software prototype for the Delta Suit Spacesuit Simulator of the Austrian Space Forum (ÖWF)
 
 # Installation
+## Pin configuration
+Connect the button between physical pin 36 (BCM GPIO 16) and physical pin 34
+(ground). Pressing it clears the four-character display.
+
+The push-to-talk button is connected between physical pin 37 (BCM GPIO 26)
+and physical pin 39 (ground). This must match the `txptt` setting in
+[config/talkkonnect-delta.xml.example](config/talkkonnect-delta.xml.example).
+
 ## I2C Configuration
 To install and run the software:
 
