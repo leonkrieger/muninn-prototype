@@ -2,7 +2,7 @@
 <document>
     <accounts>
         <account name="muninn" default="true">
-            <serverandport>192.168.178.81:64738</serverandport>
+            <serverandport></serverandport>
             <username>delta1</username>
             <password></password>
             <insecure>true</insecure>
