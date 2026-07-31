@@ -11,6 +11,13 @@ level = "DEBUG"
 [heartbeat]
 hb_freq_s = 10
 
+[communications]
+enabled = true
+executable = "/opt/talkkonnect/dist/talkkonnect"
+config_path = "/home/admin/.config/talkkonnect-delta.xml"
+restart_delay_s = 10
+startup_grace_s = 2
+
 [optics]
 enabled = true
 feed_fps = 0.2

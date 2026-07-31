@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document>
+    <accounts>
+        <account name="muninn" default="true">
+            <serverandport>192.168.178.81:64738</serverandport>
+            <username>delta1</username>
+            <password></password>
+            <insecure>true</insecure>
+            <register>false</register>
+            <channel></channel>
+            <ident>delta1</ident>
+            <voicetargets>
+                <id value="0">
+                    <channels>
+                        <channel>
+                            <name>Root</name>
+                            <recursive>true</recursive>
+                            <links>true</links>
+                            <group>all</group>
+                        </channel>
+                    </channels>
+                </id>
+            </voicetargets>
+        </account>
+    </accounts>
+    <global>
+        <software>
+            <settings>
+                <singleinstance>false</singleinstance>
+                <outputdevice>Headphone</outputdevice>
+                <outputdeviceshort>Headphone</outputdeviceshort>
+                <outputvolcontroldevice>Headphone</outputvolcontroldevice>
+                <outputmutecontroldevice>Headphone</outputmutecontroldevice>
+                <inputdevice>Mic</inputdevice>
+                <openalinputdevice>ALSA Default</openalinputdevice>
+                <openaloutputdevice>ALSA Default</openaloutputdevice>
+                <streamonstart>false</streamonstart>
+                <txonstart>false</txonstart>
+                <listentochannelsonstart>false</listentochannelsonstart>
+            </settings>
+        </software>
+        <hardware targetboard="rpi">
+            <voiceactivitytimermsecs>200</voiceactivitytimermsecs>
+            <io>
+                <pins>
+                    <pin
+                        direction="input"
+                        device="pushbutton"
+                        name="txptt"
+                        pinno="26"
+                        type="gpio"
+                        chipid="0"
+                        enabled="true"/>
+                </pins>
+            </io>
+        </hardware>
+    </global>
+</document>

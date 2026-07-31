@@ -1,5 +1,5 @@
 from . import analyzing_module
-from . import audio_module
+from . import communications_module
 from . import backup_module
 from . import command_module
 from . import display_module
@@ -17,9 +17,9 @@ MODULES = [
     display_module.DisplayModule(),
     backup_module.BackupModule(),
     publisher_module.PublisherModule(),
-#    analyzing_module.AnalyzingModule(),
-#    audio_module,
-#    command_module,
+#   analyzing_module.AnalyzingModule(),
+    communications_module.CommunicationsModule(),
+#   command_module,
     optics_module.OpticsModule(),
     fan_module.FanModule(),
     SensorModule(),
