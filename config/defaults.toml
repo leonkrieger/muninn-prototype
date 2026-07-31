@@ -39,3 +39,9 @@ name = "emc2101"
 sensor = "emc2101"
 i2c_address = 0x4C
 poll_hz = 0.5
+
+[[sensors]]
+name = "ina219"
+sensor = "ina219"
+i2c_address = 0x40
+poll_hz = 0.1

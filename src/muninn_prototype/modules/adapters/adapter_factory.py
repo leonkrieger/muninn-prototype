@@ -5,6 +5,7 @@ import logging
 from muninn_prototype.modules.adapters.sensor_adapter import SensorAdapter
 from muninn_prototype.modules.adapters.bme680_sensor_adapter import BME680SensorAdapter
 from muninn_prototype.modules.adapters.emc2101_sensor_adapter import EMC2101SensorAdapter
+from muninn_prototype.modules.adapters.ina219_sensor_adapter import INA219SensorAdapter
 
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,16 @@ def build_sensor_adapter(sensor_name: str) -> SensorAdapter | None:
             return None
 
         return EMC2101SensorAdapter()
+
+    if normalized_name == "ina219":
+        if not INA219SensorAdapter.is_available():
+            logger.warning(
+                "Skipping sensor %s because the INA219 adapter is not available",
+                sensor_name,
+            )
+            return None
+
+        return INA219SensorAdapter()
 
     logger.warning("Skipping sensor %s because no adapter matches that name", sensor_name)
     return None
