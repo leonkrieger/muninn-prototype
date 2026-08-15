@@ -191,6 +191,12 @@ class OpticsModule(BaseModule):
             image_path.write_bytes(image)
             metadata_path.write_text(json.dumps({"timestamp": timestamp.isoformat(), "priority": self._full_res_priority, "kind": "full_resolution", "path": str(image_path)}), encoding="utf-8")
             self._retention.cleanup()
+        pub.sendMessage(
+            topic("full_resolution_images"),
+            frame=ImageFrame(timestamp, image, self._full_width, self._full_height),
+            frame_id=0,
+            path=str(image_path),
+        )
         return image_path
 
     def shutdown(self) -> None:

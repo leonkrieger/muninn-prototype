@@ -73,6 +73,7 @@ class MessageEgressModule(BaseModule):
         self._endpoint = _DEFAULT_ENDPOINT
         self._suit_id = _DEFAULT_SUIT_ID
         self._publish_queue: queue.Queue[SensorReading | None] = queue.Queue(maxsize=1000)
+        self._image_queue: queue.Queue[tuple[str, str, bytes] | None] = queue.Queue(maxsize=10)
         self._egress_thread: threading.Thread | None = None
         self._stop_event = threading.Event()
         self._egress_adapter: MessageEgressAdapter | None = None
@@ -87,11 +88,22 @@ class MessageEgressModule(BaseModule):
             adapter.connect(self._endpoint)
             readings_topic = f"{self._suit_id}/{configured_topic('readings')}"
             while not self._stop_event.is_set():
-                reading = self._publish_queue.get()
-                if reading is None:
-                    break
-                adapter.publish(readings_topic, json.dumps(_reading_to_payload(reading), separators=(",", ":"), default=str))
-                logger.debug("Published reading %s", reading.reading_id)
+                try:
+                    reading = self._publish_queue.get(timeout=0.1)
+                    if reading is None:
+                        break
+                    adapter.publish(readings_topic, json.dumps(_reading_to_payload(reading), separators=(",", ":"), default=str))
+                    logger.debug("Published reading %s", reading.reading_id)
+                except queue.Empty:
+                    pass
+                try:
+                    image = self._image_queue.get_nowait()
+                    if image is None:
+                        break
+                    image_topic, metadata, payload = image
+                    adapter.publish_multipart(image_topic, metadata, payload)
+                except queue.Empty:
+                    pass
         except Exception:
             logger.exception("Publisher transport of reading failed")
         finally:
@@ -115,7 +127,8 @@ class MessageEgressModule(BaseModule):
             pub.subscribe(self._on_reading, configured_topic("readings"))
             self._subscribed = True
         if not self._images_subscribed:
-            pub.subscribe(self._on_image, configured_topic("images"))
+            pub.subscribe(self._on_feed_image, configured_topic("images"))
+            pub.subscribe(self._on_full_resolution_image, configured_topic("full_resolution_images"))
             self._images_subscribed = True
         if self._egress_thread is None or not self._egress_thread.is_alive():
             self._stop_event.clear()
@@ -124,15 +137,24 @@ class MessageEgressModule(BaseModule):
         super().initiate()
         logger.info("Started message egress module for suit %s", self._suit_id)
 
-    def _on_image(self, frame: ImageFrame, frame_id: int = 0) -> None:
-        adapter = self._egress_adapter
-        if adapter is None:
-            return
+    def _queue_image(self, topic_name: str, frame: ImageFrame, frame_id: int, **extra: Any) -> None:
         metadata = json.dumps({"frame_id": frame_id, "timestamp": frame.timestamp.isoformat(),
-                               "width": frame.width, "height": frame.height, "format": frame.format},
+                               "width": frame.width, "height": frame.height, "format": frame.format, **extra},
                               separators=(",", ":"))
         try:
-            adapter.publish_multipart(f"{self._suit_id}/{configured_topic('images')}", metadata, frame.image)
+            self._image_queue.put_nowait((f"{self._suit_id}/{topic_name}", metadata, frame.image))
+        except queue.Full:
+            logger.warning("Dropping image frame %s because the egress image queue is full", frame_id)
+
+    def _on_feed_image(self, frame: ImageFrame, frame_id: int = 0) -> None:
+        self._queue_image(configured_topic("images"), frame, frame_id)
+
+    def _on_full_resolution_image(self, frame: ImageFrame, frame_id: int = 0, path: str = "") -> None:
+        self._queue_image(configured_topic("full_resolution_images"), frame, frame_id, kind="full_resolution", path=path)
+
+    def _on_image(self, frame: ImageFrame, frame_id: int = 0) -> None:
+        try:
+            self._queue_image(configured_topic("images"), frame, frame_id)
         except Exception:
             logger.exception("Failed to publish image frame %s", frame_id)
 
@@ -142,3 +164,7 @@ class MessageEgressModule(BaseModule):
             self._publish_queue.put_nowait(None)
         except queue.Full:
             logger.debug("Publisher queue was full while shutting down")
+        try:
+            self._image_queue.put_nowait(None)
+        except queue.Full:
+            logger.debug("Image queue was full while shutting down")

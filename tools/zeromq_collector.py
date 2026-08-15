@@ -12,7 +12,7 @@ from pathlib import Path
 import zmq
 
 LOG = logging.getLogger("muninn.zeromq_collector")
-IMAGE_TOPICS = {"image", "images", "camera", "frame", "frames"}
+IMAGE_TOPICS = {"image", "images", "camera", "frame", "frames", "full_resolution_images"}
 
 
 def _now() -> datetime:
