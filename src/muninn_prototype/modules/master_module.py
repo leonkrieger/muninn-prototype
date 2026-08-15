@@ -30,6 +30,15 @@ def initiate_suit(configuration: dict | None = None):
     heartbeat_interval_s = float((configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0))
     initialization_failed = False
 
+    monitoring_module = next(
+        (module for module in MODULES if module.__class__.__name__ == "MonitoringModule"),
+        None,
+    )
+    if monitoring_module is not None:
+        monitoring_module.configure_expected_modules(
+            [module.__class__.__name__ for module in MODULES]
+        )
+
     def on_initialization_error(message=None, status=None, error_code=None, **_):
         nonlocal initialization_failed
         initialization_failed = True

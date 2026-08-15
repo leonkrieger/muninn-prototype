@@ -1,15 +1,24 @@
 [suit]
 suitID = "delta-01"
 
-[publisher]
+[egress]
 pub_backend = "zeromq"
-endpoint = "tcp://*:5555"
+endpoint = "tcp://172.16.254.110:5555"
+
+[ingress]
+enabled = false
+transport = "zeromq"
+endpoint = "tcp://172.16.254.109:5556"
+topic = ""
 
 [logging]
 level = "DEBUG"
 
 [heartbeat]
 hb_freq_s = 10
+
+[monitoring]
+allowed_missed_heartbeats = 1
 
 [communications]
 enabled = true
