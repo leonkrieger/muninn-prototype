@@ -60,6 +60,16 @@ sensor = "bme680"
 poll_hz = 0.5
 priority = 10
 
+[[sensors.checks]]
+measurement = "temperature"
+min = -20
+max = 60
+
+[[sensors.checks]]
+measurement = "humidity"
+min = 0
+max = 100
+
 [[sensors]]
 name = "emc2101"
 sensor = "emc2101"

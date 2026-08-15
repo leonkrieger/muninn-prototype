@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 class MonitoringModule(BaseModule):
-    """Monitor expected module heartbeats and report outages."""
+    """Monitor module heartbeats and sensor readings."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -27,6 +27,33 @@ class MonitoringModule(BaseModule):
         self._monitor_thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._subscribed = False
+        self._sensor_checks: dict[tuple[str, str], list[tuple[float | None, float | None]]] = {}
+
+    def _on_reading(self, reading: Any) -> None:
+        checks = self._sensor_checks.get((reading.sensor_name, reading.measurement), ())
+        try:
+            value = float(reading.value)
+        except (TypeError, ValueError):
+            return
+
+        for minimum, maximum in checks:
+            if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
+                limits = []
+                if minimum is not None:
+                    limits.append(f"min {minimum}")
+                if maximum is not None:
+                    limits.append(f"max {maximum}")
+                pub.sendMessage(
+                    "warning",
+                    module=reading.sensor_name,
+                    message=(
+                        f"Sensor {reading.sensor_name} {reading.measurement} value "
+                        f"{reading.value} {reading.unit} exceeds {' and '.join(limits)}"
+                    ),
+                    recovered=False,
+                    missed_heartbeats=0,
+                    allowed_missed_heartbeats=self._allowed_missed_heartbeats,
+                )
 
     def configure_expected_modules(self, module_names: list[str]) -> None:
         """Provide the module roster before monitoring starts."""
@@ -91,6 +118,7 @@ class MonitoringModule(BaseModule):
             self._check_health()
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
+        configuration = configuration or {}
         settings = (configuration or {}).get("monitoring", {})
         self._allowed_missed_heartbeats = max(
             0, int(settings.get("allowed_missed_heartbeats", 1))
@@ -99,9 +127,28 @@ class MonitoringModule(BaseModule):
             0.1, float((configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0))
         )
         self._started_at = time.monotonic()
+        self._sensor_checks = {}
+        for sensor in configuration.get("sensors", []):
+            sensor_name = str(sensor.get("name", "")).strip()
+            for check in sensor.get("checks", []):
+                measurement = str(check.get("measurement", "")).strip()
+                if not sensor_name or not measurement:
+                    continue
+                minimum = check.get("min")
+                maximum = check.get("max")
+                if minimum is None and maximum is None:
+                    logger.warning("Ignoring empty check for %s/%s", sensor_name, measurement)
+                    continue
+                try:
+                    bounds = (None if minimum is None else float(minimum), None if maximum is None else float(maximum))
+                except (TypeError, ValueError):
+                    logger.warning("Ignoring invalid check for %s/%s", sensor_name, measurement)
+                    continue
+                self._sensor_checks.setdefault((sensor_name, measurement), []).append(bounds)
         self._stop_event.clear()
         if not self._subscribed:
             pub.subscribe(self._on_heartbeat, topic("heartbeats"))
+            pub.subscribe(self._on_reading, topic("readings"))
             self._subscribed = True
         self._monitor_thread = threading.Thread(
             target=self._monitor,
@@ -118,4 +165,5 @@ class MonitoringModule(BaseModule):
             thread.join(timeout=max(1.0, self._check_interval_s + 1.0))
         if self._subscribed:
             pub.unsubscribe(self._on_heartbeat, topic("heartbeats"))
+            pub.unsubscribe(self._on_reading, topic("readings"))
             self._subscribed = False
