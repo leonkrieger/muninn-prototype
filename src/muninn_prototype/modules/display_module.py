@@ -6,97 +6,51 @@ from typing import Any
 
 from pubsub import pub
 
+from muninn_prototype.modules.adapters.display_adapter import DisplayAdapter
+from muninn_prototype.modules.adapters.display_adapter_factory import display_adapter_from_configuration
 from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.topic_config import topic
 
 logger = logging.getLogger(__name__)
-
 DISPLAY_TOPIC = topic("display")
 STATUS_TOPIC = topic("errors")
 DISPLAY_WIDTH = 4
-BUTTON_GPIO = 16  # BCM numbering; physical pin 36
+BUTTON_GPIO = 16
 
-ERROR_CODE_REGISTRY: dict[str, str] = {
-    "display_unavailable": "DERR",
-    "sensor_unavailable": "SERR",
-    "publisher_unavailable": "PERR",
-}
 
 class DisplayModule(BaseModule):
-    """Publishes application messages to the SparkFun Qwiic ALPHANUMERIC Display."""
+    """Publishes messages through display adapter."""
 
-    def __init__(self) -> None:
+    def __init__(self, adapter: DisplayAdapter | None = None) -> None:
         super().__init__()
-        self._display: Any | None = None
+        self._adapter = adapter
         self._available = False
         self._write_lock = threading.Lock()
         self._subscribed = False
         self._clear_button: Any | None = None
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
-        del configuration  # Reserved for possible future display configuration.
-
+        if self._adapter is None:
+            display_configuration = (configuration or {}).get("display", configuration)
+            self._adapter = display_adapter_from_configuration(display_configuration)
         try:
-            import qwiic_alphanumeric
-
-            display = qwiic_alphanumeric.QwiicAlphanumeric()
-            self._display = display
-            # Some released qwiic_alphanumeric versions perform successful
-            # initialization but omit the documented True return value.
-            # Treat only an explicit False as a failed device detection.
-            begin_result = display.begin()
-            self._available = begin_result is not False
-            if self._available:
-                logger.info("Qwiic alphanumeric display detected (begin=%r)", begin_result)
-            else:
-                logger.error("Qwiic alphanumeric display is not available")
-        except AttributeError as error:
-            # qwiic_i2c cannot provide an I2C backend on unsupported hosts
-            # (e.g. Windows), and the library currently fails later
-            # with an AttributeError when _i2c is None.
-            self._display = None
+            self._available = self._adapter.initiate()
+            logger.info("Display adapter %s available=%r", type(self._adapter).__name__, self._available)
+        except (ImportError, OSError, AttributeError, RuntimeError, ValueError):
             self._available = False
-            logger.warning(
-                "Qwiic alphanumeric display skipped: I2C is unsupported on this platform (%s)",
-                error,
-            )
-        except (ImportError, OSError) as error:
-            self._display = None
-            self._available = False
-            logger.warning(
-                "Qwiic alphanumeric display skipped: I2C is unavailable (%s)",
-                error,
-            )
-        except Exception:
-            self._display = None
-            self._available = False
-            logger.exception("Failed to initialize Qwiic alphanumeric display")
-
+            logger.exception("Display adapter is unavailable")
         if not self._subscribed:
             pub.subscribe(self._on_display_message, DISPLAY_TOPIC)
             pub.subscribe(self._on_status_message, STATUS_TOPIC)
             self._subscribed = True
-
         self._setup_clear_button()
-
-        # The module remains alive in degraded mode when no hardware exists.
         super().initiate()
 
     def _setup_clear_button(self) -> None:
-        """Configure the active-low clear button, if GPIO is available."""
         try:
             from gpiozero import Button
-
-            # The button is wired between BCM GPIO 16 and ground. The
-            # internal pull-up makes an unpressed button HIGH and a pressed
-            # button LOW, which gpiozero reports through when_pressed.
-            self._clear_button = Button(
-                BUTTON_GPIO,
-                pull_up=True,
-                bounce_time=0.1,
-            )
+            self._clear_button = Button(BUTTON_GPIO, pull_up=True, bounce_time=0.1)
             self._clear_button.when_pressed = self._clear_display
-            logger.info("Display clear button configured on BCM GPIO %d", BUTTON_GPIO)
         except (ImportError, OSError, RuntimeError) as error:
             logger.warning("Display clear button unavailable: %s", error)
 
@@ -109,48 +63,17 @@ class DisplayModule(BaseModule):
             self._clear_button.close()
             self._clear_button = None
 
-    def _on_status_message(
-        self,
-        message: Any = "",
-        status: Any | None = None,
-        error_code: Any | None = None,
-        **kwargs: Any,
-    ) -> None:
-        self._on_display_message(
-            text=message,
-            status=status,
-            error_code=error_code,
-            **kwargs,
-        )
+    def _on_status_message(self, message: Any = "", status: Any | None = None,
+                           error_code: Any | None = None, **kwargs: Any) -> None:
+        self._on_display_message(text=message, status=status, error_code=error_code, **kwargs)
 
-    def _on_display_message(
-        self,
-        text: Any = "",
-        status: Any | None = None,
-        error_code: Any | None = None,
-        **_: Any,
-    ) -> None:
-        value = self._display_value(text, status, error_code)
-        if not self._available or self._display is None:
+    def _on_display_message(self, text: Any = "", status: Any | None = None,
+                            error_code: Any | None = None, **_: Any) -> None:
+        if not self._available or self._adapter is None:
             return
-
-        # Handle empty/whitespace message as clear-display command.
-        value = value or (" " * DISPLAY_WIDTH)
-
+        value = self._adapter.render(text, status, error_code)
         try:
             with self._write_lock:
-                if len(value) > DISPLAY_WIDTH:
-                    # The SparkFun package provides shifting, not a scroll()
-                    # method. Printing the leading four characters keeps the
-                    # write path compatible with all supported releases.
-                    self._display.print(value[:DISPLAY_WIDTH])
-                else:
-                    self._display.print(value)
+                self._adapter.write(value)
         except Exception:
-            logger.exception("Failed to write %r to the display", value)
-
-    @staticmethod
-    def _display_value(text: Any, status: Any | None, error_code: Any | None) -> str:
-        identifier = str(error_code or status or "").strip()
-        mapped = ERROR_CODE_REGISTRY.get(identifier)
-        return str(mapped if mapped is not None else text).strip()
+            logger.exception("Failed to write %r to display adapter", value)
