@@ -26,7 +26,7 @@ allowed_missed_heartbeats = 1
 
 [communications]
 enabled = true
-executable = "/opt/talkkonnect/dist/talkkonnect"
+executable = "/home/talkkonnect/bin/talkkonnect"
 config_path = "/home/admin/.config/talkkonnect-delta.xml"
 restart_delay_s = 10
 startup_grace_s = 2

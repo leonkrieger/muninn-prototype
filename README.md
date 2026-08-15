@@ -1,7 +1,7 @@
 # muninn-prototype
 A Python software prototype for the Delta Suit Spacesuit Simulator of the Austrian Space Forum (ÖWF)
 
-# Installation
+# Hardware
 ## Pin configuration
 Connect the button between physical pin 36 (BCM GPIO 16) and physical pin 34
 (ground). Pressing it clears the four-character display.
@@ -10,27 +10,19 @@ The push-to-talk button is connected between physical pin 37 (BCM GPIO 26)
 and physical pin 39 (ground). This must match the `txptt` setting in
 [config/talkkonnect-delta.xml.example](config/talkkonnect-delta.xml.example).
 
+# Installation
 ## I2C Configuration
 To install and run the software:
 
 In `raspi-config`, enable I2C under Interface Options, then reboot.
 
-Then from the project folder:
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install .
-.venv/bin/muninn
-```
-
 ## Installing Talkkonnect
-
 Muninn uses [Talkkonnect](https://www.talkkonnect.com/) for communication.
-It needs to be installed separately. 
+It needs to be installed separately.
 The default Muninn configuration expects:
 
 ```text
-executable at /opt/talkkonnect/dist/talkkonnect
+executable at /opt/talkkonnect/dist/talkkonnect /home/talkkonnect/bin/talkkonnect
 the configuration to be at /home/admin/.config/talkkonnect-delta.xml
 ```
 
@@ -42,6 +34,28 @@ firewall and verify the Pi can reach the PC before starting Muninn.
 
 The repository includes [config/talkkonnect-delta.xml.example](config/talkkonnect-delta.xml.example).
 Fill out and adjust according to setup.
+
+## Installing prerequisites
+```bash
+sudo apt update
+sudo apt install build-essential libcap-dev python3.13-dev swig liblgpio-dev
+```
+
+## Installing Muninn
+Clone or copy the repository to the target machine and change into its root:
+
+```bash
+cd /home/admin/muninn-prototype
+```
+
+Then from the project folder:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install .
+.venv/bin/muninn
+```
+
 
 # ZeroMQ collector
 
