@@ -4,13 +4,12 @@ import logging
 
 import zmq
 
-from muninn_prototype.modules.adapters.publisher_adapter import PublisherAdapter
-
+from .message_egress_adapter import MessageEgressAdapter
 
 logger = logging.getLogger(__name__)
 
 
-class ZeroMQPublisherAdapter(PublisherAdapter):
+class ZeroMQEgressAdapter(MessageEgressAdapter):
     def __init__(self) -> None:
         self._context = zmq.Context.instance()
         self._socket: zmq.Socket | None = None
@@ -25,25 +24,20 @@ class ZeroMQPublisherAdapter(PublisherAdapter):
 
     def publish(self, topic: str, payload: str) -> None:
         if self._socket is None:
-            raise RuntimeError("ZeroMQ publisher is not connected")
-
-        self._socket.send_multipart([
-            topic.encode("utf-8"),
-            payload.encode("utf-8"),
-        ])
+            raise RuntimeError("ZeroMQ egress is not connected")
+        self._socket.send_multipart([topic.encode("utf-8"), payload.encode("utf-8")])
 
     def publish_multipart(self, topic: str, metadata: str, payload: bytes) -> None:
         if self._socket is None:
-            raise RuntimeError("ZeroMQ publisher is not connected")
+            raise RuntimeError("ZeroMQ egress is not connected")
         self._socket.send_multipart([topic.encode(), metadata.encode(), payload])
 
     def close(self) -> None:
         if self._socket is None:
             return
-
         try:
             self._socket.close()
         except Exception:
-            logger.exception("Failed to close ZeroMQ publisher socket for %s", self._endpoint)
+            logger.exception("Failed to close ZeroMQ egress socket for %s", self._endpoint)
         finally:
             self._socket = None
