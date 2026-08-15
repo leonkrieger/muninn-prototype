@@ -9,6 +9,7 @@ from pathlib import Path
 from pubsub import pub
 from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.backup_module import _configured_csv_path
+from muninn_prototype.modules.command_events import COMMAND_TOPIC, load_commands
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +75,18 @@ class OpticsModule(BaseModule):
         self._full_width, self._full_height = 4056, 3040
         self._capture_lock = threading.Lock()
         self._images_path: Path | None = None
+        self._command_subscribed = False
+        self._capture_command = ""
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         super().initiate()
+        self._capture_command = next(
+            (event for name, event in load_commands().items() if name == "capture_full_res_photo"),
+            "",
+        )
+        if not self._command_subscribed:
+            pub.subscribe(self._on_command, COMMAND_TOPIC)
+            self._command_subscribed = True
         if not (configuration or {}).get("optics", {}).get("enabled", True):
             logger.info("Optics disabled by configuration")
             return
@@ -96,6 +106,17 @@ class OpticsModule(BaseModule):
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._capture_loop, daemon=True, name="OpticsModule")
         self._thread.start()
+
+    def _on_command(self, command: str) -> None:
+        if command != self._capture_command:
+            return
+        try:
+            self.capture_full_res_photo()
+        except Exception:
+            logger.exception("Failed to capture full-resolution photo")
+            pub.sendMessage("status", message="photo_capture_failed")
+            return
+        pub.sendMessage("status", message="photo_capture_succeeded")
 
     def _capture_loop(self) -> None:
         assert self._camera is not None
