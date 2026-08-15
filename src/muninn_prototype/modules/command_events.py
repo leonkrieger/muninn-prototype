@@ -4,12 +4,13 @@ import tomllib
 from pathlib import Path
 
 from .topic_config import topic
+from muninn_prototype.utils.get_project_root import get_project_root
 
 COMMAND_TOPIC = topic("commands")
 
 
 def load_commands() -> dict[str, str]:
-    commands_path = Path(__file__).resolve().parents[3] / "config" / "commands.toml"
+    commands_path = get_project_root(Path(__file__).resolve()) / "config" / "commands.toml"
     try:
         with commands_path.open("rb") as commands_file:
             commands = tomllib.load(commands_file).get("commands", {})
