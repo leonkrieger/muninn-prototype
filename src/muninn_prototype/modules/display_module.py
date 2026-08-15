@@ -7,11 +7,12 @@ from typing import Any
 from pubsub import pub
 
 from muninn_prototype.modules.base_module import BaseModule
+from muninn_prototype.modules.topic_config import topic
 
 logger = logging.getLogger(__name__)
 
-DISPLAY_TOPIC = "display"
-STATUS_TOPIC = "error"
+DISPLAY_TOPIC = topic("display")
+STATUS_TOPIC = topic("errors")
 DISPLAY_WIDTH = 4
 BUTTON_GPIO = 16  # BCM numbering; physical pin 36
 

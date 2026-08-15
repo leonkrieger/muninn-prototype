@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from pubsub import pub
+from .topic_config import topic
 
 from muninn_prototype.modules import base_module
 from muninn_prototype.modules.adapters.adapter_factory import build_sensor_adapter
@@ -109,7 +110,7 @@ class SensorModule(base_module.BaseModule):
                         sensor.i2c_address,
                         error,
                     )
-                    pub.sendMessage("error", message="", error_code="sensor_unavailable")
+                    pub.sendMessage(topic("errors"), message="", error_code="sensor_unavailable")
                     continue
 
                 logger.error(
@@ -118,7 +119,7 @@ class SensorModule(base_module.BaseModule):
                     sensor.i2c_address,
                     error,
                 )
-                pub.sendMessage("error", message="", error_code="sensor_unavailable")
+                pub.sendMessage(topic("errors"), message="", error_code="sensor_unavailable")
                 continue
 
             sensor_thread = threading.Thread(
@@ -200,7 +201,7 @@ class SensorModule(base_module.BaseModule):
                         reading.unit,
                         reading.value,
                     )
-                    pub.sendMessage("readings", reading=reading)
+                pub.sendMessage(topic("readings"), reading=reading)
 
             if self._stop_event.wait(poll_interval):
                 break

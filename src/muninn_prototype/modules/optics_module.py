@@ -10,6 +10,7 @@ from pubsub import pub
 from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.backup_module import _configured_csv_path
 from muninn_prototype.modules.command_events import COMMAND_TOPIC, load_commands
+from muninn_prototype.modules.topic_config import topic
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +102,7 @@ class OpticsModule(BaseModule):
                 self._camera = PiCamera(self._width, self._height, quality)
         except Exception as error:
             logger.error("Optics unavailable: %s", error)
-            pub.sendMessage("error", message="", error_code="optics_unavailable")
+            pub.sendMessage(topic("errors"), message="", error_code="optics_unavailable")
             return
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._capture_loop, daemon=True, name="OpticsModule")
@@ -114,9 +115,9 @@ class OpticsModule(BaseModule):
             self.capture_full_res_photo()
         except Exception:
             logger.exception("Failed to capture full-resolution photo")
-            pub.sendMessage("status", message="photo_capture_failed")
+            pub.sendMessage(topic("status"), message="photo_capture_failed")
             return
-        pub.sendMessage("status", message="photo_capture_succeeded")
+        pub.sendMessage(topic("status"), message="photo_capture_succeeded")
 
     def _capture_loop(self) -> None:
         assert self._camera is not None
@@ -125,7 +126,7 @@ class OpticsModule(BaseModule):
                 self._frame_id += 1
                 with self._capture_lock:
                     image = self._camera.capture_jpeg()
-                pub.sendMessage("images", frame=ImageFrame(datetime.now(timezone.utc), image, self._width, self._height), frame_id=self._frame_id)
+                pub.sendMessage(topic("images"), frame=ImageFrame(datetime.now(timezone.utc), image, self._width, self._height), frame_id=self._frame_id)
             except Exception:
                 logger.exception("Failed to capture camera image")
             self._stop_event.wait(1.0 / self._fps)

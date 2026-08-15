@@ -14,13 +14,13 @@ from muninn_prototype.modules.adapters.message_egress_adapter_factory import bui
 from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
 from muninn_prototype.modules.optics_module import ImageFrame
 from muninn_prototype.modules.base_module import BaseModule
+from muninn_prototype.modules.topic_config import topic as configured_topic
 
 
 logger = logging.getLogger(__name__)
 
 _DEFAULT_ENDPOINT = "tcp://*:5555"
 _DEFAULT_SUIT_ID = "delta-default"
-_READINGS_TOPIC = "readings"
 
 def _configured_suit_id(configuration: dict[str, Any] | None) -> str:
     candidate = (configuration or {}).get("suit", {}).get("suitID")
@@ -85,12 +85,12 @@ class MessageEgressModule(BaseModule):
             return
         try:
             adapter.connect(self._endpoint)
-            topic = f"{self._suit_id}/{_READINGS_TOPIC}"
+            readings_topic = f"{self._suit_id}/{configured_topic('readings')}"
             while not self._stop_event.is_set():
                 reading = self._publish_queue.get()
                 if reading is None:
                     break
-                adapter.publish(topic, json.dumps(_reading_to_payload(reading), separators=(",", ":"), default=str))
+                adapter.publish(readings_topic, json.dumps(_reading_to_payload(reading), separators=(",", ":"), default=str))
                 logger.debug("Published reading %s", reading.reading_id)
         except Exception:
             logger.exception("Publisher transport of reading failed")
@@ -112,10 +112,10 @@ class MessageEgressModule(BaseModule):
             logger.warning("Egress will not publish because no egress adapter is available")
             return
         if not self._subscribed:
-            pub.subscribe(self._on_reading, "readings")
+            pub.subscribe(self._on_reading, configured_topic("readings"))
             self._subscribed = True
         if not self._images_subscribed:
-            pub.subscribe(self._on_image, "images")
+            pub.subscribe(self._on_image, configured_topic("images"))
             self._images_subscribed = True
         if self._egress_thread is None or not self._egress_thread.is_alive():
             self._stop_event.clear()
@@ -132,7 +132,7 @@ class MessageEgressModule(BaseModule):
                                "width": frame.width, "height": frame.height, "format": frame.format},
                               separators=(",", ":"))
         try:
-            adapter.publish_multipart(f"{self._suit_id}/images", metadata, frame.image)
+            adapter.publish_multipart(f"{self._suit_id}/{configured_topic('images')}", metadata, frame.image)
         except Exception:
             logger.exception("Failed to publish image frame %s", frame_id)
 

@@ -4,6 +4,7 @@ import time
 from pubsub import pub
 from muninn_prototype.modules import MODULES
 from muninn_prototype.modules.base_module import BaseModule
+from muninn_prototype.modules.topic_config import topic
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def initiate_suit(configuration: dict | None = None):
 
     # Subscribe before starting modules so errors raised during initiation are
     # captured before the success message is considered.
-    pub.subscribe(on_initialization_error, "error")
+    pub.subscribe(on_initialization_error, topic("errors"))
 
     for index, module in enumerate(MODULES):
         if isinstance(module, BaseModule):
@@ -57,16 +58,16 @@ def initiate_suit(configuration: dict | None = None):
         # DisplayModule is first in MODULES, so it is ready to receive INIT
         # before the rest of the suit is initialized.
         if index == 0:
-            pub.sendMessage("display", text="INIT")
+            pub.sendMessage(topic("display"), text="INIT")
 
     if not initialization_failed:
-        pub.sendMessage("display", text="INOK")
+        pub.sendMessage(topic("display"), text="INOK")
     else:
         logger.error("Suit initialization completed with errors")
-    pub.subscribe(on_heartbeat, "heartbeat")
+    pub.subscribe(on_heartbeat, topic("heartbeats"))
     time.sleep(_INITIALIZATION_OK_DISPLAY_S)
     if not initialization_failed:
-        pub.sendMessage("display", text="    ")
+        pub.sendMessage(topic("display"), text="    ")
     logger.info("Suit initiated")
 
 

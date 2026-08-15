@@ -1,4 +1,5 @@
 from pubsub import pub
+from .topic_config import topic
 import threading
 import time
 import logging
@@ -15,7 +16,7 @@ class BaseModule:
 
     def heartbeat(self):
         while True:
-            pub.sendMessage("heartbeat", module=self.__class__.__name__)
+            pub.sendMessage(topic("heartbeats"), module=self.__class__.__name__)
             time.sleep(self._heartbeat_interval_s)
 
     def initiate(self):

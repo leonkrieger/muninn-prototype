@@ -14,6 +14,7 @@ from pubsub import pub
 from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
 from muninn_prototype.utils.get_project_root import get_project_root
 from muninn_prototype.modules.base_module import BaseModule
+from muninn_prototype.modules.topic_config import topic
 
 
 logger = logging.getLogger(__name__)
@@ -82,7 +83,7 @@ class BackupModule(BaseModule):
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         self._csv_path = _configured_csv_path(configuration)
         if not self._subscribed:
-            pub.subscribe(self._on_reading, "readings")
+            pub.subscribe(self._on_reading, topic("readings"))
             self._subscribed = True
         super().initiate()
         logger.info("Backing up sensor readings to %s", self._csv_path)

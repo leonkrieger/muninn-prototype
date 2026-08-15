@@ -4,6 +4,7 @@ import logging
 from typing import Any
 
 from pubsub import pub
+from .topic_config import topic
 
 from muninn_prototype.modules.base_module import BaseModule
 
@@ -37,7 +38,7 @@ class FanModule(BaseModule):
             logger.info("Started EMC2101 fan at 100%% (address 0x%02X)", address)
         except Exception as error:
             logger.error("Fan unavailable: %s", error)
-            pub.sendMessage("error", message="", error_code="fan_unavailable")
+            pub.sendMessage(topic("errors"), message="", error_code="fan_unavailable")
 
     def shutdown(self) -> None:
         if self._controller is not None:

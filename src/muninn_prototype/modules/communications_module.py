@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from pubsub import pub
+from .topic_config import topic
 
 from muninn_prototype.modules.base_module import BaseModule
 
@@ -33,7 +34,7 @@ class CommunicationsModule(BaseModule):
 
     def _publish_error(self, code: str, message: str) -> None:
         logger.error(message)
-        pub.sendMessage("error", message=message, error_code=code)
+        pub.sendMessage(topic("errors"), message=message, error_code=code)
 
     def _start_process(self) -> bool:
         if not self._executable:
@@ -57,7 +58,7 @@ class CommunicationsModule(BaseModule):
         with self._lock:
             self._process = process
         logger.info("Started Talkkonnect (pid %s)", process.pid)
-        pub.sendMessage("status", message="communications_started")
+        pub.sendMessage(topic("status"), message="communications_started")
         return True
 
     def _monitor(self) -> None:
@@ -75,8 +76,8 @@ class CommunicationsModule(BaseModule):
             if self._stop_event.is_set():
                 break
             logger.warning("Talkkonnect exited with code %s", return_code)
-            pub.sendMessage("status", message="communications_exited", return_code=return_code)
-            pub.sendMessage("status", message="communications_restart")
+            pub.sendMessage(topic("status"), message="communications_exited", return_code=return_code)
+            pub.sendMessage(topic("status"), message="communications_restart")
             self._stop_event.wait(self._restart_delay_s)
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:

@@ -7,6 +7,7 @@ from pubsub import pub
 from .base_module import BaseModule
 from .message_ingress_module import InboundMessage
 from .command_events import COMMAND_TOPIC, load_commands
+from .topic_config import topic
 
 def verify_command(command: str, commands: dict[str, str]) -> bool:
     """Return whether *command* is a command supported by this module."""
@@ -34,11 +35,11 @@ class CommandModule(BaseModule):
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         self._commands = load_commands()
         if not self._subscribed:
-            pub.subscribe(self._on_message, "messages")
+            pub.subscribe(self._on_message, topic("inbound_messages"))
             self._subscribed = True
         super().initiate()
 
 
 def initiate() -> None:
     """Backward-compatible command-module entry point."""
-    pub.sendMessage("status", message="ok")
+    pub.sendMessage(topic("status"), message="ok")

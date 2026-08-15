@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from pubsub import pub
+from .topic_config import topic
 
 from muninn_prototype.modules.base_module import BaseModule
 
@@ -100,7 +101,7 @@ class MonitoringModule(BaseModule):
         self._started_at = time.monotonic()
         self._stop_event.clear()
         if not self._subscribed:
-            pub.subscribe(self._on_heartbeat, "heartbeat")
+            pub.subscribe(self._on_heartbeat, topic("heartbeats"))
             self._subscribed = True
         self._monitor_thread = threading.Thread(
             target=self._monitor,
@@ -116,6 +117,5 @@ class MonitoringModule(BaseModule):
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=max(1.0, self._check_interval_s + 1.0))
         if self._subscribed:
-            pub.unsubscribe(self._on_heartbeat, "heartbeat")
+            pub.unsubscribe(self._on_heartbeat, topic("heartbeats"))
             self._subscribed = False
-
