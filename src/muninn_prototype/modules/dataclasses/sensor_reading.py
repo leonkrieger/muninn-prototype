@@ -14,3 +14,4 @@ class SensorReading:
     measurement: str = ""
     unit: str = ""
     value: Any = None
+    priority: int = 99

@@ -1,5 +1,6 @@
 from __future__ import annotations
 import io
+import json
 import logging
 import threading
 from dataclasses import dataclass
@@ -9,10 +10,19 @@ from pathlib import Path
 from pubsub import pub
 from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.backup_module import _configured_csv_path
+from muninn_prototype.modules.backup_retention import get_retention
 from muninn_prototype.modules.command_events import COMMAND_TOPIC, load_commands
 from muninn_prototype.modules.topic_config import topic
 
 logger = logging.getLogger(__name__)
+
+
+class _NoOpLock:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        return False
 
 class Camera(Protocol):
     def capture_jpeg(self) -> bytes: ...
@@ -78,6 +88,10 @@ class OpticsModule(BaseModule):
         self._images_path: Path | None = None
         self._command_subscribed = False
         self._capture_command = ""
+        self._retention = None
+        self._full_res_priority = 40
+        self._feed_priority = 80
+        self._save_feed_images = False
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         super().initiate()
@@ -97,7 +111,12 @@ class OpticsModule(BaseModule):
                 self._full_width, self._full_height,
             ) = _camera_config(configuration)
             csv_path = _configured_csv_path(configuration)
-            self._images_path = csv_path.parent / "images"
+            root = csv_path.parent if csv_path.suffix.lower() == ".csv" else csv_path
+            self._retention = get_retention(root, configuration)
+            self._save_feed_images = bool((configuration or {}).get("optics", {}).get("save_feed_images", False))
+            self._feed_priority = self._retention.config.feed_priority
+            self._full_res_priority = self._retention.config.full_resolution_priority
+            self._images_path = root / "images"
             if not self._configured_camera:
                 self._camera = PiCamera(self._width, self._height, quality)
         except Exception as error:
@@ -124,12 +143,36 @@ class OpticsModule(BaseModule):
         while not self._stop_event.is_set():
             try:
                 self._frame_id += 1
-                with self._capture_lock:
+                lock_context = self._retention.lock if self._save_feed_images and self._retention is not None else _NoOpLock()
+                with lock_context, self._capture_lock:
+                    if self._save_feed_images and not self._retention.backup_enabled:
+                        raise OSError("Backup storage is critically full")
                     image = self._camera.capture_jpeg()
-                pub.sendMessage(topic("images"), frame=ImageFrame(datetime.now(timezone.utc), image, self._width, self._height), frame_id=self._frame_id)
+                    timestamp = datetime.now(timezone.utc)
+                    if self._save_feed_images:
+                        self._save_feed_image(image, timestamp)
+                pub.sendMessage(topic("images"), frame=ImageFrame(timestamp, image, self._width, self._height), frame_id=self._frame_id)
             except Exception:
                 logger.exception("Failed to capture camera image")
             self._stop_event.wait(1.0 / self._fps)
+
+    def _save_feed_image(self, image: bytes, timestamp: datetime) -> Path:
+        assert self._images_path is not None and self._retention is not None
+        self._images_path.mkdir(parents=True, exist_ok=True)
+        image_path = self._images_path / f"feed-{timestamp.strftime('%Y%m%dT%H%M%S%fZ')}.jpg"
+        metadata_path = image_path.with_suffix(".json")
+        image_path.write_bytes(image)
+        metadata_path.write_text(
+            json.dumps({
+                "timestamp": timestamp.isoformat(),
+                "priority": self._feed_priority,
+                "kind": "feed",
+                "path": str(image_path),
+            }),
+            encoding="utf-8",
+        )
+        self._retention.cleanup()
+        return image_path
 
     def capture_full_res_photo(self) -> Path:
         """Capture and store one full-resolution JPEG in the backup images folder."""
@@ -137,11 +180,17 @@ class OpticsModule(BaseModule):
             raise RuntimeError("Optics module is not initialized")
 
         timestamp = datetime.now(timezone.utc)
-        with self._capture_lock:
+        assert self._retention is not None
+        with self._retention.lock, self._capture_lock:
+            if not self._retention.backup_enabled:
+                raise OSError("Backup storage is critically full")
             image = self._camera.capture_full_res_jpeg(self._full_width, self._full_height)
-        self._images_path.mkdir(parents=True, exist_ok=True)
-        image_path = self._images_path / f"image-{timestamp.strftime('%Y%m%dT%H%M%S%fZ')}.jpg"
-        image_path.write_bytes(image)
+            self._images_path.mkdir(parents=True, exist_ok=True)
+            image_path = self._images_path / f"image-{timestamp.strftime('%Y%m%dT%H%M%S%fZ')}.jpg"
+            metadata_path = image_path.with_suffix(".json")
+            image_path.write_bytes(image)
+            metadata_path.write_text(json.dumps({"timestamp": timestamp.isoformat(), "priority": self._full_res_priority, "kind": "full_resolution", "path": str(image_path)}), encoding="utf-8")
+            self._retention.cleanup()
         return image_path
 
     def shutdown(self) -> None:

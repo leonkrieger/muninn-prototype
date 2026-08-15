@@ -55,6 +55,10 @@ def load_default_sensors(configuration: dict[str, Any] | None) -> list[SensorCon
             continue
 
         poll_hz = float(sensor_config.get("poll_hz", 0.2))
+        priority = int(sensor_config.get("priority", 99))
+        if not 0 <= priority <= 99:
+            logger.warning("Skipping sensor %s because priority must be 0..99", sensor_name)
+            continue
         if poll_hz <= 0:
             logger.warning("Skipping sensor %s because poll_hz must be greater than zero", sensor_name)
             continue
@@ -69,6 +73,7 @@ def load_default_sensors(configuration: dict[str, Any] | None) -> list[SensorCon
                 i2c_address=_sensor_address(sensor_config),
                 adapter=adapter,
                 poll_hz=poll_hz,
+                priority=priority,
             )
         )
 
@@ -191,6 +196,7 @@ class SensorModule(base_module.BaseModule):
                         measurement=sensor_reading.measurement,
                         unit=sensor_reading.unit,
                         value=sensor_reading.value,
+                        priority=sensor.priority,
                     )
                     logger.debug(
                         "Sensor reading from %s (%s) at %s: %s %s = %s",

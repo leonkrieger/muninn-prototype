@@ -33,6 +33,22 @@ feed_fps = 0.2
 width = 640
 height = 480
 jpeg_quality = 70
+save_feed_images = false
+
+[backup]
+csv_path = "backups"
+partition = "day"
+
+[backup.retention]
+policy = "keep_newest"
+high_watermark_percent = 90
+low_watermark_percent = 80
+minimum_free_bytes = 104857600
+prune_every = 2
+
+[backup.retention.images]
+feed_priority = 80
+full_resolution_priority = 40
 
 [fan]
 enabled = true
@@ -42,15 +58,18 @@ i2c_address = 0x4C
 name = "bme680"
 sensor = "bme680"
 poll_hz = 0.5
+priority = 10
 
 [[sensors]]
 name = "emc2101"
 sensor = "emc2101"
 i2c_address = 0x4C
 poll_hz = 0.5
+priority = 20
 
 [[sensors]]
 name = "ina219"
 sensor = "ina219"
 i2c_address = 0x40
 poll_hz = 0.1
+priority = 5

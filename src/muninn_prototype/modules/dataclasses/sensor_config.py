@@ -12,3 +12,4 @@ class SensorConfig:
     i2c_address: int
     adapter: SensorAdapter
     poll_hz: float = 1.0
+    priority: int = 99
