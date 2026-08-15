@@ -49,26 +49,41 @@ def initiate_suit(configuration: dict | None = None):
     # captured before the success message is considered.
     pub.subscribe(on_initialization_error, topic("errors"))
 
-    for index, module in enumerate(MODULES):
-        if isinstance(module, BaseModule):
-            module.configure_heartbeat_interval(heartbeat_interval_s)
+    started_modules = []
+    try:
+        for index, module in enumerate(MODULES):
+            if isinstance(module, BaseModule):
+                module.configure_heartbeat_interval(heartbeat_interval_s)
 
-        _initiate_module(module, configuration)
+            started_modules.append(module)
+            _initiate_module(module, configuration)
 
-        # DisplayModule is first in MODULES, so it is ready to receive INIT
-        # before the rest of the suit is initialized.
-        if index == 0:
-            pub.sendMessage(topic("display"), text="INIT")
+            if initialization_failed:
+                raise RuntimeError("A suit module reported an initialization error")
 
-    if not initialization_failed:
+            # DisplayModule is first in MODULES, so it is ready to receive INIT
+            # before the rest of the suit is initialized.
+            if index == 0:
+                pub.sendMessage(topic("display"), text="INIT")
+
         pub.sendMessage(topic("display"), text="INOK")
-    else:
-        logger.error("Suit initialization completed with errors")
-    pub.subscribe(on_heartbeat, topic("heartbeats"))
-    time.sleep(_INITIALIZATION_OK_DISPLAY_S)
-    if not initialization_failed:
+        pub.subscribe(on_heartbeat, topic("heartbeats"))
+        time.sleep(_INITIALIZATION_OK_DISPLAY_S)
         pub.sendMessage(topic("display"), text="    ")
-    logger.info("Suit initiated")
+        logger.info("Suit initiated")
+    except Exception as error:
+        logger.exception("Suit startup refused because initialization failed")
+        for module in reversed(started_modules):
+            shutdown = getattr(module, "shutdown", None)
+            if shutdown is None:
+                continue
+            try:
+                shutdown()
+            except Exception:
+                logger.exception("Failed to roll back %s", module.__class__.__name__)
+        raise RuntimeError("Suit initialization failed; startup refused") from error
+    finally:
+        pub.unsubscribe(on_initialization_error, topic("errors"))
 
 
 def shutdown_suit() -> None:

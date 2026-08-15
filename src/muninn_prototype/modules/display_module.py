@@ -39,6 +39,8 @@ class DisplayModule(BaseModule):
         except (ImportError, OSError, AttributeError, RuntimeError, ValueError):
             self._available = False
             logger.exception("Display adapter is unavailable")
+        if not self._available:
+            pub.sendMessage(STATUS_TOPIC, message="", error_code="display_unavailable")
         if not self._subscribed:
             pub.subscribe(self._on_display_message, DISPLAY_TOPIC)
             pub.subscribe(self._on_status_message, STATUS_TOPIC)
