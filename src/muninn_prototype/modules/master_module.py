@@ -5,6 +5,7 @@ from pubsub import pub
 from muninn_prototype.modules import MODULES
 from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.topic_config import topic
+from muninn_prototype.config_validation import validate_configuration
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,10 @@ def _initiate_module(module, configuration: dict | None = None):
     initiate(configuration)
 
 def initiate_suit(configuration: dict | None = None):
+    # Keep this guard here as well as in main(): callers may start the suit
+    # directly and must receive the same fail-fast behavior.
+    validated_configuration = validate_configuration(configuration)
+    configuration = validated_configuration.model_dump()
     logger.info("Initiating suit ...")
 
     heartbeat_interval_s = float((configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0))

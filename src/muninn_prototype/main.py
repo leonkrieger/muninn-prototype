@@ -6,11 +6,17 @@ import time
 from pathlib import Path
 from datetime import datetime
 from muninn_prototype.utils.get_project_root import get_project_root
-from muninn_prototype.modules import master_module
+from muninn_prototype.config_validation import validate_configuration
 
 root = get_project_root(Path(__file__).resolve())
 with open(root / "config" / "defaults.toml", "rb") as defaults_file:
     configuration = tomllib.load(defaults_file)
+validate_configuration(configuration)
+
+# Importing the module registry constructs the runtime module objects. Keep it
+# after configuration validation so invalid defaults cannot initialize hardware
+# or other runtime resources.
+from muninn_prototype.modules import master_module
 
 logs_dir = root / "logs"
 logs_dir.mkdir(parents=True, exist_ok=True)
