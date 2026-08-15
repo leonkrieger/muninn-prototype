@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_ENDPOINT = "tcp://*:5555"
 _DEFAULT_SUIT_ID = "delta-default"
+_DEFAULT_RECONNECT_DELAY_S = 10.0
 
 def _configured_suit_id(configuration: dict[str, Any] | None) -> str:
     candidate = (configuration or {}).get("suit", {}).get("suitID")
@@ -48,6 +49,15 @@ def _configured_endpoint(configuration: dict[str, Any] | None) -> str:
     return _DEFAULT_ENDPOINT
 
 
+def _configured_reconnect_delay(configuration: dict[str, Any] | None) -> float:
+    settings = (configuration or {}).get("egress", {})
+    try:
+        return max(0.0, float(settings.get("reconnect_delay_s", _DEFAULT_RECONNECT_DELAY_S)))
+    except (TypeError, ValueError):
+        logger.warning("Invalid egress reconnect delay; using %.1f seconds", _DEFAULT_RECONNECT_DELAY_S)
+        return _DEFAULT_RECONNECT_DELAY_S
+
+
 def _reading_to_payload(reading: SensorReading) -> dict[str, Any]:
     timestamp = reading.timestamp
     if isinstance(timestamp, datetime):
@@ -71,6 +81,7 @@ class MessageEgressModule(BaseModule):
         super().__init__()
         self._subscribed = False
         self._endpoint = _DEFAULT_ENDPOINT
+        self._reconnect_delay_s = _DEFAULT_RECONNECT_DELAY_S
         self._suit_id = _DEFAULT_SUIT_ID
         self._publish_queue: queue.Queue[SensorReading | None] = queue.Queue(maxsize=1000)
         self._image_queue: queue.Queue[tuple[str, str, bytes] | None] = queue.Queue(maxsize=10)
@@ -84,30 +95,36 @@ class MessageEgressModule(BaseModule):
         if adapter is None:
             logger.error("Failed to start egress because no adapter is configured")
             return
-        try:
-            adapter.connect(self._endpoint)
-            readings_topic = f"{self._suit_id}/{configured_topic('readings')}"
-            while not self._stop_event.is_set():
-                try:
-                    reading = self._publish_queue.get(timeout=0.1)
-                    if reading is None:
-                        break
-                    adapter.publish(readings_topic, json.dumps(_reading_to_payload(reading), separators=(",", ":"), default=str))
-                    logger.debug("Published reading %s", reading.reading_id)
-                except queue.Empty:
-                    pass
-                try:
-                    image = self._image_queue.get_nowait()
-                    if image is None:
-                        break
-                    image_topic, metadata, payload = image
-                    adapter.publish_multipart(image_topic, metadata, payload)
-                except queue.Empty:
-                    pass
-        except Exception:
-            logger.exception("Publisher transport of reading failed")
-        finally:
-            adapter.close()
+        readings_topic = f"{self._suit_id}/{configured_topic('readings')}"
+        while not self._stop_event.is_set():
+            try:
+                adapter.connect(self._endpoint)
+                logger.info("Connected egress adapter to %s", self._endpoint)
+                while not self._stop_event.is_set():
+                    try:
+                        reading = self._publish_queue.get(timeout=0.1)
+                        if reading is None:
+                            return
+                        adapter.publish(readings_topic, json.dumps(_reading_to_payload(reading), separators=(",", ":"), default=str))
+                        logger.debug("Published reading %s", reading.reading_id)
+                    except queue.Empty:
+                        pass
+                    try:
+                        image = self._image_queue.get_nowait()
+                        if image is None:
+                            return
+                        image_topic, metadata, payload = image
+                        adapter.publish_multipart(image_topic, metadata, payload)
+                    except queue.Empty:
+                        pass
+            except Exception:
+                logger.exception("Publisher transport failed; retrying in %.1f seconds", self._reconnect_delay_s)
+                adapter.close()
+                if self._stop_event.wait(self._reconnect_delay_s):
+                    break
+            else:
+                break
+        adapter.close()
 
     def _on_reading(self, reading: SensorReading) -> None:
         try:
@@ -118,6 +135,7 @@ class MessageEgressModule(BaseModule):
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         self._suit_id = _configured_suit_id(configuration)
         self._endpoint = _configured_endpoint(configuration)
+        self._reconnect_delay_s = _configured_reconnect_delay(configuration)
         self._egress_adapter = build_message_egress_adapter(configuration)
 
         if self._egress_adapter is None:

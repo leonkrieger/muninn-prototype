@@ -20,6 +20,7 @@ class SuitConfig(StrictModel):
 class EgressConfig(StrictModel):
     pub_backend: str = Field(min_length=1)
     endpoint: str = Field(min_length=1)
+    reconnect_delay_s: float = Field(ge=0)
 
 
 class IngressConfig(StrictModel):

@@ -4,6 +4,7 @@ suitID = "delta-01"
 [egress]
 pub_backend = "zeromq"
 endpoint = "tcp://172.16.254.110:5555"
+reconnect_delay_s = 10
 
 [ingress]
 enabled = false
