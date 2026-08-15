@@ -16,13 +16,27 @@ To install and run the software:
 
 In `raspi-config`, enable I2C under Interface Options, then reboot.
 
+## Installing prerequisites
+```bash
+sudo apt update
+sudo apt install build-essential libcap-dev python3.13-dev swig liblgpio-dev golang-go python3-libcamera python3-picamera2
+```
+
 ## Installing Talkkonnect
 Muninn uses [Talkkonnect](https://www.talkkonnect.com/) for communication.
-It needs to be installed separately.
+It needs to be installed separately. To avoid permission errors, install talkkonnect manually in the same parent folder you install Muninn.
+
+```bash
+git clone https://github.com/talkkonnect/talkkonnect.git
+cd talkkonnect
+make deps # Will attempt to identify your distribution and install build dependencies
+make build # Will build talKKonnect.
+```
+
 The default Muninn configuration expects:
 
 ```text
-executable at /opt/talkkonnect/dist/talkkonnect /home/talkkonnect/bin/talkkonnect
+executable at /home/admin/talkkonnect/dist/talkkonnect
 the configuration to be at /home/admin/.config/talkkonnect-delta.xml
 ```
 
@@ -35,12 +49,6 @@ firewall and verify the Pi can reach the PC before starting Muninn.
 The repository includes [config/talkkonnect-delta.xml.example](config/talkkonnect-delta.xml.example).
 Fill out and adjust according to setup.
 
-## Installing prerequisites
-```bash
-sudo apt update
-sudo apt install build-essential libcap-dev python3.13-dev swig liblgpio-dev
-```
-
 ## Installing Muninn
 Clone or copy the repository to the target machine and change into its root:
 
@@ -51,7 +59,7 @@ cd /home/admin/muninn-prototype
 Then from the project folder:
 
 ```bash
-python3 -m venv .venv
+python3 -m venv --system-site-packages .venv
 .venv/bin/pip install .
 .venv/bin/muninn
 ```
