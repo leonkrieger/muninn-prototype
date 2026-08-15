@@ -20,6 +20,22 @@ class FanModule(BaseModule):
         self._subscribed = False
         self._normal_speed = 50
 
+    def _on_command(self, command: str) -> None:
+        parts = command.split()
+        if len(parts) != 2 or parts[0] != "set_fan_speed" or self._controller is None:
+            return
+
+        try:
+            speed = int(parts[1])
+            if not 0 <= speed <= 100:
+                return
+            self._controller.manual_fan_speed = speed
+            logger.info("Set EMC2101 fan speed to %d%%", speed)
+        except (TypeError, ValueError):
+            logger.warning("Ignoring invalid fan-speed command: %s", command)
+        except Exception:
+            logger.exception("Failed to set fan speed")
+
     def _on_warning(
         self,
         module: str,
@@ -56,8 +72,9 @@ class FanModule(BaseModule):
             self._controller = EMC2101(board.I2C())
             self._controller.manual_fan_speed = self._normal_speed
             pub.subscribe(self._on_warning, "warning")
+            pub.subscribe(self._on_command, topic("commands"))
             self._subscribed = True
-            logger.info("Started EMC2101 fan at 100%% (address 0x%02X)", address)
+            logger.info("Started EMC2101 fan at %d%% (address 0x%02X)", self._normal_speed, address)
         except Exception as error:
             logger.error("Fan unavailable: %s", error)
             pub.sendMessage(topic("errors"), message="", error_code="fan_unavailable")
@@ -66,6 +83,7 @@ class FanModule(BaseModule):
         if self._subscribed:
             pub.unsubscribe(self._on_warning, "warning")
             self._subscribed = False
+        pub.unsubscribe(self._on_command, topic("commands"))
         if self._controller is not None:
             try:
                 self._controller.manual_fan_speed = 0

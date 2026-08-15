@@ -1,2 +1,3 @@
 [commands]
 capture_full_res_photo = "capture_full_res_photo"
+set_fan_speed = "set_fan_speed"

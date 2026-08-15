@@ -11,7 +11,18 @@ from .topic_config import topic
 
 def verify_command(command: str, commands: dict[str, str]) -> bool:
     """Return whether *command* is a command supported by this module."""
-    return command.strip() in commands
+    parts = command.strip().split()
+    if not parts:
+        return False
+    if command.strip() in commands:
+        return True
+    return (
+        len(parts) == 2
+        and parts[0] in commands
+        and parts[0] == "set_fan_speed"
+        and parts[1].isdigit()
+        and 0 <= int(parts[1]) <= 100
+    )
 
 
 class CommandModule(BaseModule):
@@ -30,7 +41,13 @@ class CommandModule(BaseModule):
         if not verify_command(command, self._commands):
             return
 
-        pub.sendMessage(COMMAND_TOPIC, command=self._commands[command])
+        command_name = command.split(maxsplit=1)[0]
+        event = self._commands.get(command, self._commands.get(command_name))
+        if event is None:
+            return
+        if command_name == "set_fan_speed":
+            event = f"{event} {command.split(maxsplit=1)[1]}"
+        pub.sendMessage(COMMAND_TOPIC, command=event)
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         self._commands = load_commands()
