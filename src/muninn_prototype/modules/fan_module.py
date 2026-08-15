@@ -12,16 +12,36 @@ logger = logging.getLogger(__name__)
 
 
 class FanModule(BaseModule):
-    """Run EMC2101 fan output continuously at full speed."""
-    # TODO: implement fan control
+    """Control the EMC2101 fan and respond to thermal warnings."""
 
     def __init__(self) -> None:
         super().__init__()
         self._controller: Any = None
+        self._subscribed = False
+        self._normal_speed = 50
+
+    def _on_warning(
+        self,
+        module: str,
+        message: str,
+        recovered: bool,
+        measurement: str | None = None,
+        **_: Any,
+    ) -> None:
+        if measurement != "temperature" or self._controller is None:
+            return
+
+        try:
+            speed = self._normal_speed if recovered else 100
+            self._controller.manual_fan_speed = speed
+            logger.info("Temperature warning %s; set fan speed to %d%%", "recovered" if recovered else "received", speed)
+        except Exception:
+            logger.exception("Failed to increase fan speed after high temperature warning")
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         super().initiate()
         config = (configuration or {}).get("fan", {})
+        self._normal_speed = max(0, min(100, int(config.get("normal_speed", 50))))
         if not config.get("enabled", True):
             logger.info("Fan disabled by configuration")
             return
@@ -34,13 +54,18 @@ class FanModule(BaseModule):
 
             # EMC2101 adress is fixed
             self._controller = EMC2101(board.I2C())
-            self._controller.manual_fan_speed = 100
+            self._controller.manual_fan_speed = self._normal_speed
+            pub.subscribe(self._on_warning, "warning")
+            self._subscribed = True
             logger.info("Started EMC2101 fan at 100%% (address 0x%02X)", address)
         except Exception as error:
             logger.error("Fan unavailable: %s", error)
             pub.sendMessage(topic("errors"), message="", error_code="fan_unavailable")
 
     def shutdown(self) -> None:
+        if self._subscribed:
+            pub.unsubscribe(self._on_warning, "warning")
+            self._subscribed = False
         if self._controller is not None:
             try:
                 self._controller.manual_fan_speed = 0

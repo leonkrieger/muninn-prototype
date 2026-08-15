@@ -53,6 +53,7 @@ full_resolution_priority = 40
 [fan]
 enabled = true
 i2c_address = 0x4C
+normal_speed = 50
 
 [[sensors]]
 name = "bme680"

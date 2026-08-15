@@ -28,6 +28,7 @@ class MonitoringModule(BaseModule):
         self._lock = threading.Lock()
         self._subscribed = False
         self._sensor_checks: dict[tuple[str, str], list[tuple[float | None, float | None]]] = {}
+        self._sensor_warnings: set[tuple[str, str]] = set()
 
     def _on_reading(self, reading: Any) -> None:
         checks = self._sensor_checks.get((reading.sensor_name, reading.measurement), ())
@@ -36,24 +37,42 @@ class MonitoringModule(BaseModule):
         except (TypeError, ValueError):
             return
 
+        key = (reading.sensor_name, reading.measurement)
+        violated = any(
+            (minimum is not None and value < minimum)
+            or (maximum is not None and value > maximum)
+            for minimum, maximum in checks
+        )
+        was_violated = key in self._sensor_warnings
+        if violated:
+            self._sensor_warnings.add(key)
+        elif was_violated:
+            self._sensor_warnings.remove(key)
+
+        if not violated and not was_violated:
+            return
+
+        limits = []
         for minimum, maximum in checks:
-            if (minimum is not None and value < minimum) or (maximum is not None and value > maximum):
-                limits = []
-                if minimum is not None:
-                    limits.append(f"min {minimum}")
-                if maximum is not None:
-                    limits.append(f"max {maximum}")
-                pub.sendMessage(
-                    "warning",
-                    module=reading.sensor_name,
-                    message=(
-                        f"Sensor {reading.sensor_name} {reading.measurement} value "
-                        f"{reading.value} {reading.unit} exceeds {' and '.join(limits)}"
-                    ),
-                    recovered=False,
-                    missed_heartbeats=0,
-                    allowed_missed_heartbeats=self._allowed_missed_heartbeats,
-                )
+            if minimum is not None:
+                limits.append(f"min {minimum}")
+            if maximum is not None:
+                limits.append(f"max {maximum}")
+        recovered = not violated
+        pub.sendMessage(
+            "warning",
+            module=reading.sensor_name,
+            measurement=reading.measurement,
+            value=reading.value,
+            message=(
+                f"Sensor {reading.sensor_name} {reading.measurement} value "
+                f"{reading.value} {reading.unit} "
+                f"{'recovered within' if recovered else 'exceeds'} {' and '.join(limits)}"
+            ),
+            recovered=recovered,
+            missed_heartbeats=0,
+            allowed_missed_heartbeats=self._allowed_missed_heartbeats,
+        )
 
     def configure_expected_modules(self, module_names: list[str]) -> None:
         """Provide the module roster before monitoring starts."""
@@ -128,6 +147,7 @@ class MonitoringModule(BaseModule):
         )
         self._started_at = time.monotonic()
         self._sensor_checks = {}
+        self._sensor_warnings.clear()
         for sensor in configuration.get("sensors", []):
             sensor_name = str(sensor.get("name", "")).strip()
             for check in sensor.get("checks", []):
