@@ -19,6 +19,8 @@ class ZeroMQEgressAdapter(MessageEgressAdapter):
         self._endpoint = endpoint
         socket = self._context.socket(zmq.PUB)
         socket.linger = 0
+        socket.sndhwm = 1000
+        socket.sndtimeo = 1000
         socket.bind(endpoint)
         self._socket = socket
 
