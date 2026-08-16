@@ -53,10 +53,7 @@ class MessageIngressModule(BaseModule):
         thread = self._thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=1.0)
-
-        # Adapters that block in an external API may need an explicit close to
-        # wake their receive loop. The normal path above avoids closing a
-        # socket from a thread that does not own it.
+            
         if thread is not None and thread.is_alive() and self._adapter is not None:
             self._adapter.close()
             thread.join(timeout=1.0)
