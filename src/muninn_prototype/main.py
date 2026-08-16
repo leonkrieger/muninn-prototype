@@ -1,6 +1,7 @@
 import logging 
 import tomllib
 import signal
+import threading
 import time
 
 from pathlib import Path
@@ -51,15 +52,17 @@ def print_welcome_message():
 def main():
     print_welcome_message()
     shutting_down = False
+    shutdown_event = threading.Event()
 
     def handle_sigint(_signum, _frame):
         nonlocal shutting_down
         shutting_down = True
+        shutdown_event.set()
         logger.info("Received Ctrl+C. Shutting down.")
 
     signal.signal(signal.SIGINT, handle_sigint)
     try:
-        master_module.initiate_suit(configuration)
+        master_module.initiate_suit(configuration, shutdown_event)
         while not shutting_down:
             time.sleep(1)
     finally:

@@ -1,5 +1,6 @@
 import logging
 import inspect
+import threading
 import time
 from pubsub import pub
 from muninn_prototype.modules import MODULES
@@ -26,7 +27,10 @@ def _initiate_module(module, configuration: dict | None = None):
 
     initiate(configuration)
 
-def initiate_suit(configuration: dict | None = None):
+def initiate_suit(
+    configuration: dict | None = None,
+    shutdown_event: threading.Event | None = None,
+):
     # Keep this guard here as well as in main(): callers may start the suit
     # directly and must receive the same fail-fast behavior.
     validated_configuration = validate_configuration(configuration)
@@ -57,6 +61,8 @@ def initiate_suit(configuration: dict | None = None):
     started_modules = []
     try:
         for index, module in enumerate(MODULES):
+            if shutdown_event is not None and shutdown_event.is_set():
+                raise RuntimeError("Suit initialization cancelled")
             if isinstance(module, BaseModule):
                 module.configure_heartbeat_interval(heartbeat_interval_s)
 
@@ -73,7 +79,11 @@ def initiate_suit(configuration: dict | None = None):
 
         pub.sendMessage(topic("display"), text="INOK")
         pub.subscribe(on_heartbeat, topic("heartbeats"))
-        time.sleep(_INITIALIZATION_OK_DISPLAY_S)
+        if shutdown_event is not None:
+            if shutdown_event.wait(_INITIALIZATION_OK_DISPLAY_S):
+                raise RuntimeError("Suit initialization cancelled")
+        else:
+            time.sleep(_INITIALIZATION_OK_DISPLAY_S)
         pub.sendMessage(topic("display"), text="    ")
         logger.info("Suit initiated")
     except Exception as error:
