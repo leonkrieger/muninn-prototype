@@ -31,23 +31,25 @@ class MonitoringModule(BaseModule):
         self._sensor_warnings: set[tuple[str, str]] = set()
 
     def _on_reading(self, reading: Any) -> None:
-        checks = self._sensor_checks.get((reading.sensor_name, reading.measurement), ())
+        key = (reading.sensor_name, reading.measurement)
+        with self._lock:
+            checks = tuple(self._sensor_checks.get(key, ()))
         try:
             value = float(reading.value)
         except (TypeError, ValueError):
             return
 
-        key = (reading.sensor_name, reading.measurement)
         violated = any(
             (minimum is not None and value < minimum)
             or (maximum is not None and value > maximum)
             for minimum, maximum in checks
         )
-        was_violated = key in self._sensor_warnings
-        if violated:
-            self._sensor_warnings.add(key)
-        elif was_violated:
-            self._sensor_warnings.remove(key)
+        with self._lock:
+            was_violated = key in self._sensor_warnings
+            if violated:
+                self._sensor_warnings.add(key)
+            elif was_violated:
+                self._sensor_warnings.remove(key)
 
         if not violated and not was_violated:
             return
