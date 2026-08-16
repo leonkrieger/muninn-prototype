@@ -50,8 +50,6 @@ def print_welcome_message():
 
 def main():
     print_welcome_message()
-    master_module.initiate_suit(configuration)
-
     shutting_down = False
 
     def handle_sigint(_signum, _frame):
@@ -60,8 +58,8 @@ def main():
         logger.info("Received Ctrl+C. Shutting down.")
 
     signal.signal(signal.SIGINT, handle_sigint)
-
     try:
+        master_module.initiate_suit(configuration)
         while not shutting_down:
             time.sleep(1)
     finally:
