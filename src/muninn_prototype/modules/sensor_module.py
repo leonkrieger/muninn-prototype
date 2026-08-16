@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from pubsub import pub
+from .command_events import COMMAND_TOPIC
 from .topic_config import topic
 
 from muninn_prototype.modules import base_module
@@ -87,6 +88,9 @@ class SensorModule(base_module.BaseModule):
         self._sensors = list(sensors or [])
         self._sensor_threads: list[threading.Thread] = []
         self._stop_event = threading.Event()
+        self._collection_lock = threading.Lock()
+        self._collecting = False
+        self._command_subscribed = False
         self._reading_id_lock = threading.Lock()
         self._next_reading_id = 0
 
@@ -101,45 +105,77 @@ class SensorModule(base_module.BaseModule):
         if not self._configured_sensors:
             self._sensors = load_default_sensors(configuration)
 
-        for sensor in self._sensors:
-            try:
-                # Adapter construction is lazy, so perform the first I2C
-                # access synchronously.  Otherwise an unavailable device is
-                # reported only after its polling thread has already started.
-                sensor.adapter.read(sensor.i2c_address)
-            except Exception as error:
-                if _is_missing_i2c_device_error(error):
-                    logger.error(
-                        "Skipping sensor %s at address 0x%02X because the device is unavailable: %s",
-                        sensor.name,
-                        sensor.i2c_address,
-                        error,
-                    )
+        if not self._command_subscribed:
+            pub.subscribe(self._on_command, COMMAND_TOPIC)
+            self._command_subscribed = True
+
+        logger.info("Sensor collection is disabled until sensor start is received")
+
+    def _on_command(self, command: str) -> None:
+        if command == "sensor_start":
+            self.start_collection()
+        elif command == "sensor_stop":
+            self.stop_collection()
+
+    def start_collection(self) -> None:
+        with self._collection_lock:
+            if self._collecting:
+                return
+
+            self._stop_event.clear()
+            self._sensor_threads = []
+            for sensor in self._sensors:
+                try:
+                    # Adapter construction is lazy, so perform the first I2C
+                    # access synchronously before starting its polling thread.
+                    sensor.adapter.read(sensor.i2c_address)
+                except Exception as error:
+                    if _is_missing_i2c_device_error(error):
+                        logger.error(
+                            "Skipping sensor %s at address 0x%02X because the device is unavailable: %s",
+                            sensor.name,
+                            sensor.i2c_address,
+                            error,
+                        )
+                    else:
+                        logger.error(
+                            "Skipping sensor %s at address 0x%02X because initialization failed: %s",
+                            sensor.name,
+                            sensor.i2c_address,
+                            error,
+                        )
                     pub.sendMessage(topic("errors"), message="", error_code="sensor_unavailable")
                     continue
 
-                logger.error(
-                    "Skipping sensor %s at address 0x%02X because initialization failed: %s",
-                    sensor.name,
-                    sensor.i2c_address,
-                    error,
+                sensor_thread = threading.Thread(
+                    target=self._poll_sensor,
+                    args=(sensor,),
+                    daemon=True,
+                    name=f"{self.__class__.__name__}:{sensor.name}",
                 )
-                pub.sendMessage(topic("errors"), message="", error_code="sensor_unavailable")
-                continue
+                self._sensor_threads.append(sensor_thread)
+                sensor_thread.start()
 
-            sensor_thread = threading.Thread(
-                target=self._poll_sensor,
-                args=(sensor,),
-                daemon=True,
-                name=f"{self.__class__.__name__}:{sensor.name}",
-            )
-            self._sensor_threads.append(sensor_thread)
-            sensor_thread.start()
+            self._collecting = True
+            logger.info("Started %d sensor polling threads", len(self._sensor_threads))
 
-        logger.info("Started %d sensor polling threads", len(self._sensor_threads))
+    def stop_collection(self) -> None:
+        with self._collection_lock:
+            if not self._collecting:
+                return
+
+            self._stop_event.set()
+            for sensor_thread in self._sensor_threads:
+                sensor_thread.join(timeout=2.0)
+            self._sensor_threads = []
+            self._collecting = False
+            logger.info("Stopped sensor collection")
 
     def shutdown(self):
-        self._stop_event.set()
+        self.stop_collection()
+        if self._command_subscribed:
+            pub.unsubscribe(self._on_command, COMMAND_TOPIC)
+            self._command_subscribed = False
 
     def _poll_sensor(self, sensor: SensorConfig):
         logger.info(
