@@ -186,3 +186,19 @@ class MessageEgressModule(BaseModule):
             self._image_queue.put_nowait(None)
         except queue.Full:
             logger.debug("Image queue was full while shutting down")
+
+        thread = self._egress_thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=max(1.0, self._reconnect_delay_s + 1.0))
+            if thread.is_alive():
+                logger.error("Message egress worker did not stop within the shutdown timeout")
+            else:
+                self._egress_thread = None
+
+        if self._subscribed:
+            pub.unsubscribe(self._on_reading, configured_topic("readings"))
+            self._subscribed = False
+        if self._images_subscribed:
+            pub.unsubscribe(self._on_feed_image, configured_topic("images"))
+            pub.unsubscribe(self._on_full_resolution_image, configured_topic("full_resolution_images"))
+            self._images_subscribed = False
