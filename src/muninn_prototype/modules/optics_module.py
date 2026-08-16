@@ -163,6 +163,10 @@ class OpticsModule(BaseModule):
             self._stop_event.set()
             if self._thread is not None:
                 self._thread.join(timeout=2.0)
+                if self._thread.is_alive():
+                    logger.error("Camera capture thread did not stop within the shutdown timeout")
+                    self._feed_active = True
+                    return
             self._thread = None
             self._feed_active = False
             logger.info("Stopped camera feed")
@@ -233,6 +237,6 @@ class OpticsModule(BaseModule):
         if self._command_subscribed:
             pub.unsubscribe(self._on_command, COMMAND_TOPIC)
             self._command_subscribed = False
-        if self._camera is not None:
+        if self._camera is not None and (self._thread is None or not self._thread.is_alive()):
             self._camera.close()
             self._camera = None

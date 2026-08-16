@@ -167,6 +167,15 @@ class SensorModule(base_module.BaseModule):
             self._stop_event.set()
             for sensor_thread in self._sensor_threads:
                 sensor_thread.join(timeout=2.0)
+            still_running = [thread for thread in self._sensor_threads if thread.is_alive()]
+            if still_running:
+                logger.error(
+                    "%d sensor polling thread(s) did not stop within the shutdown timeout",
+                    len(still_running),
+                )
+                self._sensor_threads = still_running
+                self._collecting = True
+                return
             self._sensor_threads = []
             self._collecting = False
             logger.info("Stopped sensor collection")
