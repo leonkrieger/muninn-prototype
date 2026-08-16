@@ -56,6 +56,12 @@ class CommandModule(BaseModule):
             self._subscribed = True
         super().initiate()
 
+    def shutdown(self) -> None:
+        if self._subscribed:
+            pub.unsubscribe(self._on_message, topic("inbound_messages"))
+            self._subscribed = False
+        super().shutdown()
+
 
 def initiate() -> None:
     """Backward-compatible command-module entry point."""
