@@ -84,6 +84,8 @@ def initiate_suit(configuration: dict | None = None):
                 continue
             try:
                 shutdown()
+                if isinstance(module, BaseModule):
+                    BaseModule.shutdown(module)
             except Exception:
                 logger.exception("Failed to roll back %s", module.__class__.__name__)
         raise RuntimeError("Suit initialization failed; startup refused") from error
@@ -100,5 +102,7 @@ def shutdown_suit() -> None:
             continue
         try:
             shutdown()
+            if isinstance(module, BaseModule):
+                BaseModule.shutdown(module)
         except Exception:
             logger.exception("Failed to shut down %s", module.__class__.__name__)
