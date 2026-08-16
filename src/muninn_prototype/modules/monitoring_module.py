@@ -165,6 +165,9 @@ class MonitoringModule(BaseModule):
                     logger.warning("Ignoring invalid check for %s/%s", sensor_name, measurement)
                     continue
                 self._sensor_checks.setdefault((sensor_name, measurement), []).append(bounds)
+        if self._monitor_thread is not None and self._monitor_thread.is_alive():
+            logger.debug("Monitoring worker is already running")
+            return
         self._stop_event.clear()
         if not self._subscribed:
             pub.subscribe(self._on_heartbeat, topic("heartbeats"))

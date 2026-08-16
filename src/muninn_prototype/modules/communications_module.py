@@ -89,6 +89,9 @@ class CommunicationsModule(BaseModule):
         self._config_path = str(settings.get("config_path", "")).strip()
         self._restart_delay_s = max(0.1, float(settings.get("restart_delay_s", 10.0)))
         self._startup_grace_s = max(0.0, float(settings.get("startup_grace_s", 2.0)))
+        if self._monitor_thread is not None and self._monitor_thread.is_alive():
+            logger.debug("Communications worker is already running")
+            return
         self._stop_event.clear()
         self._monitor_thread = threading.Thread(target=self._monitor, daemon=True, name="CommunicationsModule:Talkkonnect")
         self._monitor_thread.start()
