@@ -85,6 +85,8 @@ class OpticsModule(BaseModule):
         self._fps, self._width, self._height, self._frame_id = 0.2, 640, 480, 0
         self._full_width, self._full_height = 4056, 3040
         self._capture_lock = threading.Lock()
+        self._feed_lock = threading.Lock()
+        self._feed_active = False
         self._images_path: Path | None = None
         self._command_subscribed = False
         self._capture_command = ""
@@ -123,11 +125,15 @@ class OpticsModule(BaseModule):
             logger.error("Optics unavailable: %s", error)
             pub.sendMessage(topic("errors"), message="", error_code="optics_unavailable")
             return
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._capture_loop, daemon=True, name="OpticsModule")
-        self._thread.start()
+        logger.info("Camera feed is disabled until feed start is received")
 
     def _on_command(self, command: str) -> None:
+        if command == "feed_start":
+            self.start_feed()
+            return
+        if command == "feed_stop":
+            self.stop_feed()
+            return
         if command != self._capture_command:
             return
         try:
@@ -137,6 +143,29 @@ class OpticsModule(BaseModule):
             pub.sendMessage(topic("status"), message="photo_capture_failed")
             return
         pub.sendMessage(topic("status"), message="photo_capture_succeeded")
+
+    def start_feed(self) -> None:
+        with self._feed_lock:
+            if self._feed_active or self._camera is None:
+                return
+
+            self._stop_event.clear()
+            self._thread = threading.Thread(target=self._capture_loop, daemon=True, name="OpticsModule")
+            self._thread.start()
+            self._feed_active = True
+            logger.info("Started camera feed at %.2f fps", self._fps)
+
+    def stop_feed(self) -> None:
+        with self._feed_lock:
+            if not self._feed_active:
+                return
+
+            self._stop_event.set()
+            if self._thread is not None:
+                self._thread.join(timeout=2.0)
+            self._thread = None
+            self._feed_active = False
+            logger.info("Stopped camera feed")
 
     def _capture_loop(self) -> None:
         assert self._camera is not None
@@ -200,6 +229,10 @@ class OpticsModule(BaseModule):
         return image_path
 
     def shutdown(self) -> None:
-        self._stop_event.set()
+        self.stop_feed()
+        if self._command_subscribed:
+            pub.unsubscribe(self._on_command, COMMAND_TOPIC)
+            self._command_subscribed = False
         if self._camera is not None:
             self._camera.close()
+            self._camera = None
