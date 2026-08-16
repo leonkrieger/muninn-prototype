@@ -29,7 +29,9 @@ class MessageIngressModule(BaseModule):
         self._stop_event = threading.Event()
 
     def _on_message(self, topic: str, payload: str) -> None:
-        pub.sendMessage(topic("inbound_messages"), message=InboundMessage(topic, payload))
+        pub.sendMessage(
+            topic("inbound_messages"), message=InboundMessage(topic, payload)
+        )
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         settings = (configuration or {}).get("ingress", {})
@@ -38,13 +40,22 @@ class MessageIngressModule(BaseModule):
             return
         self._adapter = self._adapter or build_message_ingress_adapter(configuration)
         if self._adapter is None:
-            pub.sendMessage(topic("errors"), message="No message ingress adapter available", error_code="ingress_unavailable")
+            pub.sendMessage(
+                topic("errors"),
+                message="No message ingress adapter available",
+                error_code="ingress_unavailable",
+            )
             return
         if self._thread is not None and self._thread.is_alive():
             logger.debug("Message ingress worker is already running")
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._adapter.receive_loop, args=(self._on_message, self._stop_event), daemon=True, name="MessageIngressModule")
+        self._thread = threading.Thread(
+            target=self._adapter.receive_loop,
+            args=(self._on_message, self._stop_event),
+            daemon=True,
+            name="MessageIngressModule",
+        )
         self._thread.start()
         super().initiate()
 
@@ -53,7 +64,7 @@ class MessageIngressModule(BaseModule):
         thread = self._thread
         if thread is not None and thread is not threading.current_thread():
             thread.join(timeout=1.0)
-            
+
         if thread is not None and thread.is_alive() and self._adapter is not None:
             self._adapter.close()
             thread.join(timeout=1.0)

@@ -44,11 +44,18 @@ class EMC2101SensorAdapter(SensorAdapter):
 
         timestamp = datetime.now(timezone.utc)
         readings = [
-            SensorReading(timestamp=timestamp, measurement="temp internal", unit="Celsius", value=sensor.internal_temperature),
+            SensorReading(
+                timestamp=timestamp,
+                measurement="temp internal",
+                unit="Celsius",
+                value=sensor.internal_temperature,
+            ),
         ]
 
         with self._sensor_cache_lock:
-            external_temperature_available = self._external_temperature_available.get(i2c_address, True)
+            external_temperature_available = self._external_temperature_available.get(
+                i2c_address, True
+            )
 
         if external_temperature_available:
             try:
@@ -63,7 +70,12 @@ class EMC2101SensorAdapter(SensorAdapter):
                 raise
 
             readings.append(
-                SensorReading(timestamp=timestamp, measurement="temp external", unit="Celsius", value=external_temperature)
+                SensorReading(
+                    timestamp=timestamp,
+                    measurement="temp external",
+                    unit="Celsius",
+                    value=external_temperature,
+                )
             )
 
         return readings

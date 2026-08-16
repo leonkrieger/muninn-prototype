@@ -49,9 +49,31 @@ class BME680SensorAdapter(SensorAdapter):
 
         timestamp = datetime.now(timezone.utc)
         return [
-            SensorReading(timestamp=timestamp, measurement="temperature", unit="Celsius", value=sensor.temperature),
-            SensorReading(timestamp=timestamp, measurement="humidity", unit="percent", value=sensor.humidity),
-            SensorReading(timestamp=timestamp, measurement="pressure", unit="hPa", value=sensor.pressure),
-            SensorReading(timestamp=timestamp, measurement="gas", unit="ohm", value=sensor.gas),
-            SensorReading(timestamp=timestamp, measurement="altitude", unit="m", value=sensor.altitude),
+            SensorReading(
+                timestamp=timestamp,
+                measurement="temperature",
+                unit="Celsius",
+                value=sensor.temperature,
+            ),
+            SensorReading(
+                timestamp=timestamp,
+                measurement="humidity",
+                unit="percent",
+                value=sensor.humidity,
+            ),
+            SensorReading(
+                timestamp=timestamp,
+                measurement="pressure",
+                unit="hPa",
+                value=sensor.pressure,
+            ),
+            SensorReading(
+                timestamp=timestamp, measurement="gas", unit="ohm", value=sensor.gas
+            ),
+            SensorReading(
+                timestamp=timestamp,
+                measurement="altitude",
+                unit="m",
+                value=sensor.altitude,
+            ),
         ]

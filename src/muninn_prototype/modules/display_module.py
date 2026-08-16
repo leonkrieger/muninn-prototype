@@ -7,7 +7,9 @@ from typing import Any
 from pubsub import pub
 
 from muninn_prototype.modules.adapters.display_adapter import DisplayAdapter
-from muninn_prototype.modules.adapters.display_adapter_factory import display_adapter_from_configuration
+from muninn_prototype.modules.adapters.display_adapter_factory import (
+    display_adapter_from_configuration,
+)
 from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.topic_config import topic
 
@@ -35,7 +37,11 @@ class DisplayModule(BaseModule):
             self._adapter = display_adapter_from_configuration(display_configuration)
         try:
             self._available = self._adapter.initiate()
-            logger.info("Display adapter %s available=%r", type(self._adapter).__name__, self._available)
+            logger.info(
+                "Display adapter %s available=%r",
+                type(self._adapter).__name__,
+                self._available,
+            )
         except (ImportError, OSError, AttributeError, RuntimeError, ValueError):
             self._available = False
             logger.exception("Display adapter is unavailable")
@@ -51,6 +57,7 @@ class DisplayModule(BaseModule):
     def _setup_clear_button(self) -> None:
         try:
             from gpiozero import Button
+
             self._clear_button = Button(BUTTON_GPIO, pull_up=True, bounce_time=0.1)
             self._clear_button.when_pressed = self._clear_display
         except (ImportError, OSError, RuntimeError) as error:
@@ -71,12 +78,24 @@ class DisplayModule(BaseModule):
         self._available = False
         super().shutdown()
 
-    def _on_status_message(self, message: Any = "", status: Any | None = None,
-                           error_code: Any | None = None, **kwargs: Any) -> None:
-        self._on_display_message(text=message, status=status, error_code=error_code, **kwargs)
+    def _on_status_message(
+        self,
+        message: Any = "",
+        status: Any | None = None,
+        error_code: Any | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self._on_display_message(
+            text=message, status=status, error_code=error_code, **kwargs
+        )
 
-    def _on_display_message(self, text: Any = "", status: Any | None = None,
-                            error_code: Any | None = None, **_: Any) -> None:
+    def _on_display_message(
+        self,
+        text: Any = "",
+        status: Any | None = None,
+        error_code: Any | None = None,
+        **_: Any,
+    ) -> None:
         if not self._available or self._adapter is None:
             return
         value = self._adapter.render(text, status, error_code)

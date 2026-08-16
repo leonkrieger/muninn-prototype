@@ -1,4 +1,5 @@
 """Validation for ``config/defaults.toml``."""
+
 from __future__ import annotations
 
 from typing import Literal
@@ -79,7 +80,9 @@ class RetentionConfig(StrictModel):
     @model_validator(mode="after")
     def valid_watermarks(self) -> "RetentionConfig":
         if self.low_watermark_percent >= self.high_watermark_percent:
-            raise ValueError("low_watermark_percent must be less than high_watermark_percent")
+            raise ValueError(
+                "low_watermark_percent must be less than high_watermark_percent"
+            )
         if self.policy == "prune" and self.prune_every < 2:
             raise ValueError("prune_every must be at least 2 when policy is prune")
         return self

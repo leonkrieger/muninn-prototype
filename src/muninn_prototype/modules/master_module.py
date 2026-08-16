@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 _INITIALIZATION_OK_DISPLAY_S = 5.0
 
+
 def on_heartbeat(module):
     logger.info(f"Received heartbeat from: {module}")
 
@@ -27,21 +28,27 @@ def _initiate_module(module, configuration: dict | None = None):
 
     initiate(configuration)
 
+
 def initiate_suit(
     configuration: dict | None = None,
     shutdown_event: threading.Event | None = None,
 ):
-    # Keep this guard here as well as in main(): callers may start the suit
-    # directly and must receive the same fail-fast behavior.
+    # Keep guard here and in main() so every call gets verified
     validated_configuration = validate_configuration(configuration)
     configuration = validated_configuration.model_dump()
     logger.info("Initiating suit ...")
 
-    heartbeat_interval_s = float((configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0))
+    heartbeat_interval_s = float(
+        (configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0)
+    )
     initialization_failed = False
 
     monitoring_module = next(
-        (module for module in MODULES if module.__class__.__name__ == "MonitoringModule"),
+        (
+            module
+            for module in MODULES
+            if module.__class__.__name__ == "MonitoringModule"
+        ),
         None,
     )
     if monitoring_module is not None:
@@ -54,8 +61,7 @@ def initiate_suit(
         initialization_failed = True
         logger.error("Module initialization reported an error: %s", error_code)
 
-    # Subscribe before starting modules so errors raised during initiation are
-    # captured before the success message is considered.
+    # Subscribe before starting modules to capture errors raised during init
     pub.subscribe(on_initialization_error, topic("errors"))
 
     started_modules = []

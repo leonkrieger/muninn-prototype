@@ -9,6 +9,7 @@ from .message_ingress_module import InboundMessage
 from .command_events import COMMAND_TOPIC, load_commands
 from .topic_config import topic
 
+
 def verify_command(command: str, commands: dict[str, str]) -> bool:
     """Return whether *command* is a command supported by this module."""
     parts = command.strip().split()

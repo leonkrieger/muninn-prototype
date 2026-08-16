@@ -40,6 +40,8 @@ class ZeroMQEgressAdapter(MessageEgressAdapter):
         try:
             self._socket.close()
         except Exception:
-            logger.exception("Failed to close ZeroMQ egress socket for %s", self._endpoint)
+            logger.exception(
+                "Failed to close ZeroMQ egress socket for %s", self._endpoint
+            )
         finally:
             self._socket = None

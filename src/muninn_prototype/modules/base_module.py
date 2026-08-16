@@ -6,6 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class BaseModule:
     def __init__(self, heartbeat_interval_s: float = 5.0):
         self._heartbeat_thread = None
@@ -26,10 +27,7 @@ class BaseModule:
             logger.debug("Heartbeat already running for %s", self.__class__.__name__)
             return
         self._heartbeat_stop_event.clear()
-        self._heartbeat_thread = threading.Thread(
-            target=self.heartbeat,
-            daemon=True
-        )
+        self._heartbeat_thread = threading.Thread(target=self.heartbeat, daemon=True)
         self._heartbeat_thread.start()
 
         logger.info("%s initiated", self.__class__.__name__)

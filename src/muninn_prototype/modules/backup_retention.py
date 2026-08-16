@@ -39,15 +39,23 @@ def load_retention_config(configuration: dict[str, Any] | None) -> RetentionConf
     high = float(settings.get("high_watermark_percent", 90))
     low = float(settings.get("low_watermark_percent", 80))
     minimum_free = int(settings.get("minimum_free_bytes", 104857600))
-    priorities = (settings.get("priorities", {}) or {})
+    priorities = settings.get("priorities", {}) or {}
     feed = int(images.get("feed_priority", priorities.get("feed", 80)))
-    full = int(images.get("full_resolution_priority", priorities.get("full_resolution", 40)))
+    full = int(
+        images.get("full_resolution_priority", priorities.get("full_resolution", 40))
+    )
     if policy not in {"keep_oldest", "keep_newest", "keep_highest_priority", "prune"}:
-        raise ValueError("backup.retention.policy must be keep_oldest, keep_newest, keep_highest_priority, or prune")
+        raise ValueError(
+            "backup.retention.policy must be keep_oldest, keep_newest, keep_highest_priority, or prune"
+        )
     if not 0 <= low < high <= 100:
-        raise ValueError("backup retention watermarks must satisfy 0 <= low < high <= 100")
+        raise ValueError(
+            "backup retention watermarks must satisfy 0 <= low < high <= 100"
+        )
     if minimum_free < 0 or not all(0 <= value <= 99 for value in (feed, full)):
-        raise ValueError("backup retention priorities and minimum_free_bytes are invalid")
+        raise ValueError(
+            "backup retention priorities and minimum_free_bytes are invalid"
+        )
     prune_every = int(settings.get("prune_every", 2))
     if policy == "prune" and prune_every < 2:
         raise ValueError("backup.retention.prune_every must be at least 2")
@@ -67,11 +75,17 @@ class BackupRetention:
 
     def _under_pressure(self) -> bool:
         total, used, free = self._usage()
-        return used / total * 100 >= self.config.high_watermark_percent or free < self.config.minimum_free_bytes
+        return (
+            used / total * 100 >= self.config.high_watermark_percent
+            or free < self.config.minimum_free_bytes
+        )
 
     def _target_reached(self) -> bool:
         total, used, free = self._usage()
-        return used / total * 100 <= self.config.low_watermark_percent and free >= self.config.minimum_free_bytes
+        return (
+            used / total * 100 <= self.config.low_watermark_percent
+            and free >= self.config.minimum_free_bytes
+        )
 
     def _artifacts(self) -> list[Artifact]:
         result: list[Artifact] = []
@@ -102,7 +116,9 @@ class BackupRetention:
         if every < 2:
             return
         counts: dict[str, int] = {}
-        files = sorted(self.root.glob("readings-*-p*.csv"), key=lambda path: path.stat().st_mtime)
+        files = sorted(
+            self.root.glob("readings-*-p*.csv"), key=lambda path: path.stat().st_mtime
+        )
         for path in files:
             if path.resolve() in protected:
                 continue
@@ -126,7 +142,9 @@ class BackupRetention:
                         writer.writerows(kept)
                     temporary.replace(path)
             except (OSError, csv.Error, IndexError):
-                logger.warning("Could not prune backup readings in %s", path, exc_info=True)
+                logger.warning(
+                    "Could not prune backup readings in %s", path, exc_info=True
+                )
 
     def cleanup(self, protected: set[Path] | None = None) -> bool:
         with self.lock:
@@ -139,9 +157,15 @@ class BackupRetention:
                 if self._target_reached():
                     self.backup_enabled = True
                     return True
-            artifacts = [item for item in self._artifacts() if item.path.resolve() not in protected]
+            artifacts = [
+                item
+                for item in self._artifacts()
+                if item.path.resolve() not in protected
+            ]
             if self.config.policy == "keep_highest_priority":
-                artifacts.sort(key=lambda item: (item.priority, item.created_at), reverse=True)
+                artifacts.sort(
+                    key=lambda item: (item.priority, item.created_at), reverse=True
+                )
             elif self.config.policy == "keep_oldest":
                 artifacts.sort(key=lambda item: item.created_at, reverse=True)
             else:
@@ -156,7 +180,9 @@ class BackupRetention:
                     except FileNotFoundError:
                         pass
                     except OSError:
-                        logger.warning("Could not remove backup artifact %s", path, exc_info=True)
+                        logger.warning(
+                            "Could not remove backup artifact %s", path, exc_info=True
+                        )
             self.backup_enabled = self._target_reached()
             return self.backup_enabled
 
@@ -165,7 +191,9 @@ _MANAGERS: dict[Path, BackupRetention] = {}
 _MANAGERS_LOCK = threading.Lock()
 
 
-def get_retention(root: Path, configuration: dict[str, Any] | None = None) -> BackupRetention:
+def get_retention(
+    root: Path, configuration: dict[str, Any] | None = None
+) -> BackupRetention:
     key = root.resolve()
     with _MANAGERS_LOCK:
         manager = _MANAGERS.get(key)

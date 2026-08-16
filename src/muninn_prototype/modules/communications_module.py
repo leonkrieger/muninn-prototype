@@ -38,10 +38,16 @@ class CommunicationsModule(BaseModule):
 
     def _start_process(self) -> bool:
         if not self._executable:
-            self._publish_error("communications_executable_missing", "Talkkonnect executable is not configured")
+            self._publish_error(
+                "communications_executable_missing",
+                "Talkkonnect executable is not configured",
+            )
             return False
         if not self._config_path or not Path(self._config_path).is_file():
-            self._publish_error("communications_config_missing", f"Talkkonnect config does not exist: {self._config_path}")
+            self._publish_error(
+                "communications_config_missing",
+                f"Talkkonnect config does not exist: {self._config_path}",
+            )
             return False
         try:
             process = subprocess.Popen(
@@ -53,7 +59,9 @@ class CommunicationsModule(BaseModule):
                 env=os.environ.copy(),
             )
         except (OSError, ValueError) as exc:
-            self._publish_error("communications_start_failed", f"Failed to start Talkkonnect: {exc}")
+            self._publish_error(
+                "communications_start_failed", f"Failed to start Talkkonnect: {exc}"
+            )
             return False
         with self._lock:
             self._process = process
@@ -76,7 +84,11 @@ class CommunicationsModule(BaseModule):
             if self._stop_event.is_set():
                 break
             logger.warning("Talkkonnect exited with code %s", return_code)
-            pub.sendMessage(topic("status"), message="communications_exited", return_code=return_code)
+            pub.sendMessage(
+                topic("status"),
+                message="communications_exited",
+                return_code=return_code,
+            )
             pub.sendMessage(topic("status"), message="communications_restart")
             self._stop_event.wait(self._restart_delay_s)
 
@@ -93,7 +105,9 @@ class CommunicationsModule(BaseModule):
             logger.debug("Communications worker is already running")
             return
         self._stop_event.clear()
-        self._monitor_thread = threading.Thread(target=self._monitor, daemon=True, name="CommunicationsModule:Talkkonnect")
+        self._monitor_thread = threading.Thread(
+            target=self._monitor, daemon=True, name="CommunicationsModule:Talkkonnect"
+        )
         self._monitor_thread.start()
         super().initiate()
 

@@ -47,8 +47,7 @@ class INA219SensorAdapter(SensorAdapter):
         sensor = self._get_sensor(i2c_address)
         bus_voltage = sensor.getBusVoltage_V()
 
-        # Match the capacity estimate in the Waveshare INA219 example:
-        # 6.0 V is empty and 8.4 V is full for the monitored battery.
+        # TODO: Match the capacity estimate with batteries voltages:
         capacity = max(0.0, min(100.0, (bus_voltage - 6.0) / 2.4 * 100.0))
 
         return [

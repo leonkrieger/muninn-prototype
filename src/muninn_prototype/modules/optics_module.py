@@ -24,17 +24,23 @@ class _NoOpLock:
     def __exit__(self, exc_type, exc_value, traceback):
         return False
 
+
 class Camera(Protocol):
     def capture_jpeg(self) -> bytes: ...
     def capture_full_res_jpeg(self, width: int, height: int) -> bytes: ...
     def close(self) -> None: ...
 
+
 class PiCamera:
     def __init__(self, width: int, height: int, quality: int) -> None:
         from picamera2 import Picamera2
+
         self._camera = Picamera2()
-        self._camera.configure(self._camera.create_still_configuration(
-            main={"size": (width, height), "format": "RGB888"}))
+        self._camera.configure(
+            self._camera.create_still_configuration(
+                main={"size": (width, height), "format": "RGB888"}
+            )
+        )
         self._camera.start()
         self._quality = quality
 
@@ -55,6 +61,7 @@ class PiCamera:
         self._camera.stop()
         self._camera.close()
 
+
 @dataclass(frozen=True, slots=True)
 class ImageFrame:
     timestamp: datetime
@@ -63,7 +70,10 @@ class ImageFrame:
     height: int
     format: str = "jpeg"
 
-def _camera_config(configuration: dict[str, Any] | None) -> tuple[float, int, int, int, int, int]:
+
+def _camera_config(
+    configuration: dict[str, Any] | None,
+) -> tuple[float, int, int, int, int, int]:
     config = (configuration or {}).get("optics", {})
     fps = float(config.get("feed_fps", 0.2))
     if not 0.1 <= fps <= 1.0:
@@ -73,8 +83,11 @@ def _camera_config(configuration: dict[str, Any] | None) -> tuple[float, int, in
     full_height = int(config.get("full_height", 3040))
     quality = int(config.get("jpeg_quality", 70))
     if min(width, height, full_width, full_height) <= 0 or not 1 <= quality <= 100:
-        raise ValueError("optics dimensions must be positive and jpeg_quality must be 1..100")
+        raise ValueError(
+            "optics dimensions must be positive and jpeg_quality must be 1..100"
+        )
     return fps, width, height, quality, full_width, full_height
+
 
 class OpticsModule(BaseModule):
     def __init__(self, camera: Camera | None = None) -> None:
@@ -99,7 +112,11 @@ class OpticsModule(BaseModule):
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         super().initiate()
         self._capture_command = next(
-            (event for name, event in load_commands().items() if name == "capture_full_res_photo"),
+            (
+                event
+                for name, event in load_commands().items()
+                if name == "capture_full_res_photo"
+            ),
             "",
         )
         if not self._command_subscribed:
@@ -110,13 +127,19 @@ class OpticsModule(BaseModule):
             return
         try:
             (
-                self._fps, self._width, self._height, quality,
-                self._full_width, self._full_height,
+                self._fps,
+                self._width,
+                self._height,
+                quality,
+                self._full_width,
+                self._full_height,
             ) = _camera_config(configuration)
             csv_path = _configured_csv_path(configuration)
             root = csv_path.parent if csv_path.suffix.lower() == ".csv" else csv_path
             self._retention = get_retention(root, configuration)
-            self._save_feed_images = bool((configuration or {}).get("optics", {}).get("save_feed_images", False))
+            self._save_feed_images = bool(
+                (configuration or {}).get("optics", {}).get("save_feed_images", False)
+            )
             self._feed_priority = self._retention.config.feed_priority
             self._full_res_priority = self._retention.config.full_resolution_priority
             self._images_path = root / "images"
@@ -124,7 +147,9 @@ class OpticsModule(BaseModule):
                 self._camera = PiCamera(self._width, self._height, quality)
         except Exception as error:
             logger.error("Optics unavailable: %s", error)
-            pub.sendMessage(topic("errors"), message="", error_code="optics_unavailable")
+            pub.sendMessage(
+                topic("errors"), message="", error_code="optics_unavailable"
+            )
             return
         logger.info("Camera feed is disabled until feed start is received")
 
@@ -138,7 +163,9 @@ class OpticsModule(BaseModule):
         if command != self._capture_command:
             return
         if self._photo_thread is not None and self._photo_thread.is_alive():
-            logger.warning("Skipped full-resolution photo command while capture is in progress")
+            logger.warning(
+                "Skipped full-resolution photo command while capture is in progress"
+            )
             return
         self._photo_thread = threading.Thread(
             target=self._capture_photo_worker,
@@ -162,7 +189,9 @@ class OpticsModule(BaseModule):
                 return
 
             self._stop_event.clear()
-            self._thread = threading.Thread(target=self._capture_loop, daemon=True, name="OpticsModule")
+            self._thread = threading.Thread(
+                target=self._capture_loop, daemon=True, name="OpticsModule"
+            )
             self._thread.start()
             self._feed_active = True
             logger.info("Started camera feed at %.2f fps", self._fps)
@@ -176,7 +205,9 @@ class OpticsModule(BaseModule):
             if self._thread is not None:
                 self._thread.join(timeout=2.0)
                 if self._thread.is_alive():
-                    logger.error("Camera capture thread did not stop within the shutdown timeout")
+                    logger.error(
+                        "Camera capture thread did not stop within the shutdown timeout"
+                    )
                     self._feed_active = True
                     return
             self._thread = None
@@ -188,7 +219,11 @@ class OpticsModule(BaseModule):
         while not self._stop_event.is_set():
             try:
                 self._frame_id += 1
-                lock_context = self._retention.lock if self._save_feed_images and self._retention is not None else _NoOpLock()
+                lock_context = (
+                    self._retention.lock
+                    if self._save_feed_images and self._retention is not None
+                    else _NoOpLock()
+                )
                 with lock_context, self._capture_lock:
                     if self._save_feed_images and not self._retention.backup_enabled:
                         raise OSError("Backup storage is critically full")
@@ -196,7 +231,11 @@ class OpticsModule(BaseModule):
                     timestamp = datetime.now(timezone.utc)
                     if self._save_feed_images:
                         self._save_feed_image(image, timestamp)
-                pub.sendMessage(topic("images"), frame=ImageFrame(timestamp, image, self._width, self._height), frame_id=self._frame_id)
+                pub.sendMessage(
+                    topic("images"),
+                    frame=ImageFrame(timestamp, image, self._width, self._height),
+                    frame_id=self._frame_id,
+                )
             except Exception:
                 logger.exception("Failed to capture camera image")
             self._stop_event.wait(1.0 / self._fps)
@@ -204,16 +243,20 @@ class OpticsModule(BaseModule):
     def _save_feed_image(self, image: bytes, timestamp: datetime) -> Path:
         assert self._images_path is not None and self._retention is not None
         self._images_path.mkdir(parents=True, exist_ok=True)
-        image_path = self._images_path / f"feed-{timestamp.strftime('%Y%m%dT%H%M%S%fZ')}.jpg"
+        image_path = (
+            self._images_path / f"feed-{timestamp.strftime('%Y%m%dT%H%M%S%fZ')}.jpg"
+        )
         metadata_path = image_path.with_suffix(".json")
         image_path.write_bytes(image)
         metadata_path.write_text(
-            json.dumps({
-                "timestamp": timestamp.isoformat(),
-                "priority": self._feed_priority,
-                "kind": "feed",
-                "path": str(image_path),
-            }),
+            json.dumps(
+                {
+                    "timestamp": timestamp.isoformat(),
+                    "priority": self._feed_priority,
+                    "kind": "feed",
+                    "path": str(image_path),
+                }
+            ),
             encoding="utf-8",
         )
         self._retention.cleanup()
@@ -229,12 +272,27 @@ class OpticsModule(BaseModule):
         with self._retention.lock, self._capture_lock:
             if not self._retention.backup_enabled:
                 raise OSError("Backup storage is critically full")
-            image = self._camera.capture_full_res_jpeg(self._full_width, self._full_height)
+            image = self._camera.capture_full_res_jpeg(
+                self._full_width, self._full_height
+            )
             self._images_path.mkdir(parents=True, exist_ok=True)
-            image_path = self._images_path / f"image-{timestamp.strftime('%Y%m%dT%H%M%S%fZ')}.jpg"
+            image_path = (
+                self._images_path
+                / f"image-{timestamp.strftime('%Y%m%dT%H%M%S%fZ')}.jpg"
+            )
             metadata_path = image_path.with_suffix(".json")
             image_path.write_bytes(image)
-            metadata_path.write_text(json.dumps({"timestamp": timestamp.isoformat(), "priority": self._full_res_priority, "kind": "full_resolution", "path": str(image_path)}), encoding="utf-8")
+            metadata_path.write_text(
+                json.dumps(
+                    {
+                        "timestamp": timestamp.isoformat(),
+                        "priority": self._full_res_priority,
+                        "kind": "full_resolution",
+                        "path": str(image_path),
+                    }
+                ),
+                encoding="utf-8",
+            )
             self._retention.cleanup()
         pub.sendMessage(
             topic("full_resolution_images"),
@@ -250,12 +308,18 @@ class OpticsModule(BaseModule):
         if photo_thread is not None and photo_thread is not threading.current_thread():
             photo_thread.join(timeout=2.0)
             if photo_thread.is_alive():
-                logger.error("Full-resolution photo thread did not stop within the shutdown timeout")
+                logger.error(
+                    "Full-resolution photo thread did not stop within the shutdown timeout"
+                )
             else:
                 self._photo_thread = None
         if self._command_subscribed:
             pub.unsubscribe(self._on_command, COMMAND_TOPIC)
             self._command_subscribed = False
-        if self._camera is not None and (self._thread is None or not self._thread.is_alive()) and (self._photo_thread is None or not self._photo_thread.is_alive()):
+        if (
+            self._camera is not None
+            and (self._thread is None or not self._thread.is_alive())
+            and (self._photo_thread is None or not self._photo_thread.is_alive())
+        ):
             self._camera.close()
             self._camera = None

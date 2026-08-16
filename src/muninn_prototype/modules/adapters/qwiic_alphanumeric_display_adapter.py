@@ -20,6 +20,7 @@ class QwiicAlphanumericDisplayAdapter(DisplayAdapter):
 
     def initiate(self) -> bool:
         import qwiic_alphanumeric
+
         self._display = qwiic_alphanumeric.QwiicAlphanumeric()
         return self._display.begin() is not False
 

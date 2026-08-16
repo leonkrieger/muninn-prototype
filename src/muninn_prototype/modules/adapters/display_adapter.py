@@ -26,8 +26,8 @@ class DisplayAdapter(ABC):
     def clear(self) -> None:
         """Clear the display."""
 
-    def render(self, text: Any = "", status: Any | None = None,
-               error_code: Any | None = None) -> str:
+    def render(
+        self, text: Any = "", status: Any | None = None, error_code: Any | None = None
+    ) -> str:
         identifier = str(error_code or status or "").strip()
         return str(self.error_codes.get(identifier, text)).strip()
-

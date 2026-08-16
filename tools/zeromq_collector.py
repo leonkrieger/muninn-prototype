@@ -12,7 +12,14 @@ from pathlib import Path
 import zmq
 
 LOG = logging.getLogger("muninn.zeromq_collector")
-IMAGE_TOPICS = {"image", "images", "camera", "frame", "frames", "full_resolution_images"}
+IMAGE_TOPICS = {
+    "image",
+    "images",
+    "camera",
+    "frame",
+    "frames",
+    "full_resolution_images",
+}
 
 
 def _now() -> datetime:
@@ -47,11 +54,13 @@ class Collector:
         (self.output / "telemetry.jsonl").touch(exist_ok=True)
         self.stop_event = threading.Event()
 
-    def _save_image(self, topic: str, payload: bytes, declared: str | None = None) -> None:
+    def _save_image(
+        self, topic: str, payload: bytes, declared: str | None = None
+    ) -> None:
         stamp = _now()
         folder = self.output / "images" / stamp.strftime("%Y-%m-%d")
         folder.mkdir(parents=True, exist_ok=True)
-        filename = f"{stamp.strftime('%Y%m%dT%H%M%S.%fZ')}_{abs(hash(topic)) & 0xffff:04x}{_image_extension(payload, declared)}"
+        filename = f"{stamp.strftime('%Y%m%dT%H%M%S.%fZ')}_{abs(hash(topic)) & 0xFFFF:04x}{_image_extension(payload, declared)}"
         (folder / filename).write_bytes(payload)
         LOG.info("Saved image %s (%d bytes)", folder / filename, len(payload))
 
@@ -63,16 +72,27 @@ class Collector:
         except (UnicodeDecodeError, json.JSONDecodeError):
             value = None
 
-        if kind in IMAGE_TOPICS or (isinstance(value, dict) and ("image" in value or "data" in value and "mime_type" in value)):
+        if kind in IMAGE_TOPICS or (
+            isinstance(value, dict)
+            and ("image" in value or "data" in value and "mime_type" in value)
+        ):
             if isinstance(value, dict):
                 encoded = value.get("image", value.get("data"))
-                payload = base64.b64decode(encoded) if isinstance(encoded, str) else payload
+                payload = (
+                    base64.b64decode(encoded) if isinstance(encoded, str) else payload
+                )
                 self._save_image(topic, payload, value.get("mime_type"))
             else:
                 self._save_image(topic, payload)
             return
 
-        record = {"received_at": _now().isoformat(), "topic": topic, "payload": value if value is not None else {"raw_base64": base64.b64encode(payload).decode("ascii")}}
+        record = {
+            "received_at": _now().isoformat(),
+            "topic": topic,
+            "payload": value
+            if value is not None
+            else {"raw_base64": base64.b64encode(payload).decode("ascii")},
+        }
         with (self.output / "telemetry.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record, separators=(",", ":"), default=str) + "\n")
 
@@ -96,13 +116,29 @@ class Collector:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Collect ZeroMQ telemetry and images from a suit")
-    parser.add_argument("--endpoint", default="tcp://127.0.0.1:5555", help="ZeroMQ publisher endpoint")
-    parser.add_argument("--output", type=Path, default=Path("collected-data"), help="Output directory")
-    parser.add_argument("--subscribe", action="append", default=[""], help="Topic prefix; repeatable (default: all topics)")
-    parser.add_argument("--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    parser = argparse.ArgumentParser(
+        description="Collect ZeroMQ telemetry and images from a suit"
+    )
+    parser.add_argument(
+        "--endpoint", default="tcp://127.0.0.1:5555", help="ZeroMQ publisher endpoint"
+    )
+    parser.add_argument(
+        "--output", type=Path, default=Path("collected-data"), help="Output directory"
+    )
+    parser.add_argument(
+        "--subscribe",
+        action="append",
+        default=[""],
+        help="Topic prefix; repeatable (default: all topics)",
+    )
+    parser.add_argument(
+        "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
+    )
     args = parser.parse_args()
-    logging.basicConfig(level=getattr(logging, args.log_level), format="%(asctime)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=getattr(logging, args.log_level),
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
     collector = Collector(args.endpoint, args.output, args.subscribe)
     signal.signal(signal.SIGINT, lambda *_: collector.stop_event.set())
     signal.signal(signal.SIGTERM, lambda *_: collector.stop_event.set())

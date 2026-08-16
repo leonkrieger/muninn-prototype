@@ -21,7 +21,16 @@ from muninn_prototype.modules.backup_retention import get_retention
 
 logger = logging.getLogger(__name__)
 
-_CSV_FIELDNAMES = ["reading_id", "timestamp", "sensor_name", "sensor_type", "measurement", "unit", "value", "priority"]
+_CSV_FIELDNAMES = [
+    "reading_id",
+    "timestamp",
+    "sensor_name",
+    "sensor_type",
+    "measurement",
+    "unit",
+    "value",
+    "priority",
+]
 
 
 def _default_csv_path() -> Path:
@@ -69,7 +78,9 @@ class BackupModule(BaseModule):
         self._csv_path: Path | None = None
         self._subscribed = False
         self._retention = None
-        self._reading_queue: queue.Queue[SensorReading | None] = queue.Queue(maxsize=1000)
+        self._reading_queue: queue.Queue[SensorReading | None] = queue.Queue(
+            maxsize=1000
+        )
         self._worker: threading.Thread | None = None
         self._stop_event = threading.Event()
 
@@ -80,32 +91,55 @@ class BackupModule(BaseModule):
         try:
             self._reading_queue.put_nowait(reading)
         except queue.Full:
-            logger.warning("Backup queue full, dropping backup of reading %s", reading.reading_id)
+            logger.warning(
+                "Backup queue full, dropping backup of reading %s", reading.reading_id
+            )
 
     def _write_reading(self, reading: SensorReading) -> None:
         try:
             with self._retention.lock, self._csv_lock:
                 if not self._retention.backup_enabled:
                     return
-                partition = reading.timestamp.astimezone(timezone.utc).strftime("%Y%m%d")
-                self._csv_path = self._csv_path.parent / f"readings-{partition}-p{reading.priority:02d}.csv"
+                partition = reading.timestamp.astimezone(timezone.utc).strftime(
+                    "%Y%m%d"
+                )
+                self._csv_path = (
+                    self._csv_path.parent
+                    / f"readings-{partition}-p{reading.priority:02d}.csv"
+                )
                 _ensure_header(self._csv_path)
                 with self._csv_path.open("a", newline="", encoding="utf-8") as csv_file:
-                    csv.DictWriter(csv_file, fieldnames=_CSV_FIELDNAMES).writerow(_reading_to_row(reading))
+                    csv.DictWriter(csv_file, fieldnames=_CSV_FIELDNAMES).writerow(
+                        _reading_to_row(reading)
+                    )
                 self._retention.cleanup({self._csv_path})
         except Exception:
-            logger.debug("Failed to write backup for reading from %s", reading.sensor_name or "unknown sensor", exc_info=True)
+            logger.debug(
+                "Failed to write backup for reading from %s",
+                reading.sensor_name or "unknown sensor",
+                exc_info=True,
+            )
         else:
-            logger.debug("Successfully wrote backup for reading %s from %s", reading.reading_id, reading.sensor_name or "unknown sensor")
+            logger.debug(
+                "Successfully wrote backup for reading %s from %s",
+                reading.reading_id,
+                reading.sensor_name or "unknown sensor",
+            )
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         self._csv_path = _configured_csv_path(configuration)
-        root = self._csv_path.parent if self._csv_path.suffix.lower() == ".csv" else self._csv_path
+        root = (
+            self._csv_path.parent
+            if self._csv_path.suffix.lower() == ".csv"
+            else self._csv_path
+        )
         root.mkdir(parents=True, exist_ok=True)
         self._retention = get_retention(root, configuration)
         if self._worker is None or not self._worker.is_alive():
             self._stop_event.clear()
-            self._worker = threading.Thread(target=self._write_loop, daemon=True, name="BackupModule:Writer")
+            self._worker = threading.Thread(
+                target=self._write_loop, daemon=True, name="BackupModule:Writer"
+            )
             self._worker.start()
         if not self._subscribed:
             pub.subscribe(self._on_reading, topic("readings"))

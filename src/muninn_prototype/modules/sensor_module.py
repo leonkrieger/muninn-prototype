@@ -48,7 +48,9 @@ def load_default_sensors(configuration: dict[str, Any] | None) -> list[SensorCon
 
         sensor_type = str(sensor_config.get("sensor", "")).strip()
         if not sensor_type:
-            logger.warning("Skipping sensor %s because no sensor type was provided", sensor_name)
+            logger.warning(
+                "Skipping sensor %s because no sensor type was provided", sensor_name
+            )
             continue
 
         adapter = build_sensor_adapter(sensor_type)
@@ -58,13 +60,21 @@ def load_default_sensors(configuration: dict[str, Any] | None) -> list[SensorCon
         poll_hz = float(sensor_config.get("poll_hz", 0.2))
         priority = int(sensor_config.get("priority", 99))
         if not 0 <= priority <= 99:
-            logger.warning("Skipping sensor %s because priority must be 0..99", sensor_name)
+            logger.warning(
+                "Skipping sensor %s because priority must be 0..99", sensor_name
+            )
             continue
         if poll_hz <= 0:
-            logger.warning("Skipping sensor %s because poll_hz must be greater than zero", sensor_name)
+            logger.warning(
+                "Skipping sensor %s because poll_hz must be greater than zero",
+                sensor_name,
+            )
             continue
         if poll_hz >= 10:
-            logger.warning("Skipping sensor %s because poll_hz must be smaller than or equal 10", sensor_name)
+            logger.warning(
+                "Skipping sensor %s because poll_hz must be smaller than or equal 10",
+                sensor_name,
+            )
             continue
 
         sensors.append(
@@ -126,8 +136,7 @@ class SensorModule(base_module.BaseModule):
             self._sensor_threads = []
             for sensor in self._sensors:
                 try:
-                    # Adapter construction is lazy, so perform the first I2C
-                    # access synchronously before starting its polling thread.
+                    # Adapter construction is lazy. Perform the first I2C access synchronously before starting polling thread
                     sensor.adapter.read(sensor.i2c_address)
                 except Exception as error:
                     if _is_missing_i2c_device_error(error):
@@ -144,7 +153,9 @@ class SensorModule(base_module.BaseModule):
                             sensor.i2c_address,
                             error,
                         )
-                    pub.sendMessage(topic("errors"), message="", error_code="sensor_unavailable")
+                    pub.sendMessage(
+                        topic("errors"), message="", error_code="sensor_unavailable"
+                    )
                     continue
 
                 sensor_thread = threading.Thread(
@@ -167,7 +178,9 @@ class SensorModule(base_module.BaseModule):
             self._stop_event.set()
             for sensor_thread in self._sensor_threads:
                 sensor_thread.join(timeout=2.0)
-            still_running = [thread for thread in self._sensor_threads if thread.is_alive()]
+            still_running = [
+                thread for thread in self._sensor_threads if thread.is_alive()
+            ]
             if still_running:
                 logger.error(
                     "%d sensor polling thread(s) did not stop within the shutdown timeout",
@@ -201,15 +214,13 @@ class SensorModule(base_module.BaseModule):
                 sensor.name,
             )
             return
-        
+
         if sensor.poll_hz >= 10:
             logger.warning(
                 "Skipping sensor %s because poll_hz must be smaller than or equal 10",
                 sensor.name,
             )
             return
-
-        
 
         poll_interval = 1.0 / sensor.poll_hz
 

@@ -12,6 +12,10 @@ def create_display_adapter(name: str = "qwiic_alphanumeric") -> DisplayAdapter:
     raise ValueError(f"Unknown display adapter: {name}")
 
 
-def display_adapter_from_configuration(configuration: dict[str, Any] | None) -> DisplayAdapter:
+def display_adapter_from_configuration(
+    configuration: dict[str, Any] | None,
+) -> DisplayAdapter:
     configuration = configuration or {}
-    return create_display_adapter(str(configuration.get("adapter", "qwiic_alphanumeric")))
+    return create_display_adapter(
+        str(configuration.get("adapter", "qwiic_alphanumeric"))
+    )

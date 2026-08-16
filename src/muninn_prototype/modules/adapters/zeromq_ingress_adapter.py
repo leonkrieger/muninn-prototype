@@ -31,7 +31,9 @@ class ZeroMQIngressAdapter(MessageIngressAdapter):
                 except zmq.Again:
                     continue
                 if len(parts) != 2:
-                    logger.warning("Ignoring malformed ZeroMQ message with %s frames", len(parts))
+                    logger.warning(
+                        "Ignoring malformed ZeroMQ message with %s frames", len(parts)
+                    )
                     continue
                 on_message(parts[0].decode("utf-8"), parts[1].decode("utf-8"))
         finally:

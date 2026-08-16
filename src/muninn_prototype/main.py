@@ -1,4 +1,4 @@
-import logging 
+import logging
 import tomllib
 import signal
 import threading
@@ -14,9 +14,8 @@ with open(root / "config" / "defaults.toml", "rb") as defaults_file:
     configuration = tomllib.load(defaults_file)
 validate_configuration(configuration)
 
-# Importing the module registry constructs the runtime module objects. Keep it
-# after configuration validation so invalid defaults cannot initialize hardware
-# or other runtime resources.
+# Importing module registry constructs runtime module objects.
+# Keep after configuration validation to avoid invalid default initializations
 from muninn_prototype.modules import master_module
 
 logs_dir = root / "logs"
@@ -30,24 +29,23 @@ log_level = getattr(logging, log_level_name, logging.INFO)
 
 logging.basicConfig(
     level=log_level,
-    format='[ %(asctime)s ] [%(module)s] [%(levelname)s] [%(message)s]',
-    handlers=[
-        logging.FileHandler(str(log_filename)),
-        logging.StreamHandler()
-    ]
+    format="[ %(asctime)s ] [%(module)s] [%(levelname)s] [%(message)s]",
+    handlers=[logging.FileHandler(str(log_filename)), logging.StreamHandler()],
 )
 
 logger = logging.getLogger(__name__)
 
+
 def print_welcome_message():
     try:
-        with open(root/"logo.txt", "r", encoding="utf-8") as file:
+        with open(root / "logo.txt", "r", encoding="utf-8") as file:
             print(file.read())
             print("=" * 40)
             print("  Muninn  |  v0.0.1")
             print("=" * 40)
     except FileNotFoundError:
         logger.warning("Error: logo.txt not found.")
+
 
 def main():
     print_welcome_message()
@@ -70,6 +68,6 @@ def main():
         master_module.shutdown_suit()
         logger.info("Shutdown complete.")
 
+
 if __name__ == "__main__":
     main()
-    

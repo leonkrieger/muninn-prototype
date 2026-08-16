@@ -50,9 +50,15 @@ class FanModule(BaseModule):
         try:
             speed = self._normal_speed if recovered else 100
             self._controller.manual_fan_speed = speed
-            logger.info("Temperature warning %s; set fan speed to %d%%", "recovered" if recovered else "received", speed)
+            logger.info(
+                "Temperature warning %s; set fan speed to %d%%",
+                "recovered" if recovered else "received",
+                speed,
+            )
         except Exception:
-            logger.exception("Failed to increase fan speed after high temperature warning")
+            logger.exception(
+                "Failed to increase fan speed after high temperature warning"
+            )
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         super().initiate()
@@ -74,7 +80,11 @@ class FanModule(BaseModule):
             pub.subscribe(self._on_warning, "warning")
             pub.subscribe(self._on_command, topic("commands"))
             self._subscribed = True
-            logger.info("Started EMC2101 fan at %d%% (address 0x%02X)", self._normal_speed, address)
+            logger.info(
+                "Started EMC2101 fan at %d%% (address 0x%02X)",
+                self._normal_speed,
+                address,
+            )
         except Exception as error:
             logger.error("Fan unavailable: %s", error)
             pub.sendMessage(topic("errors"), message="", error_code="fan_unavailable")

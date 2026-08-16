@@ -27,7 +27,9 @@ class MonitoringModule(BaseModule):
         self._monitor_thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._subscribed = False
-        self._sensor_checks: dict[tuple[str, str], list[tuple[float | None, float | None]]] = {}
+        self._sensor_checks: dict[
+            tuple[str, str], list[tuple[float | None, float | None]]
+        ] = {}
         self._sensor_warnings: set[tuple[str, str]] = set()
 
     def _on_reading(self, reading: Any) -> None:
@@ -80,12 +82,12 @@ class MonitoringModule(BaseModule):
         """Provide the module roster before monitoring starts."""
         with self._lock:
             self._expected_modules = {
-                name for name in module_names
+                name
+                for name in module_names
                 if name and name != self.__class__.__name__
             }
             self._last_heartbeat = {
-                name: self._last_heartbeat.get(name)
-                for name in self._expected_modules
+                name: self._last_heartbeat.get(name) for name in self._expected_modules
             }
 
     def _on_heartbeat(self, module: str) -> None:
@@ -126,7 +128,10 @@ class MonitoringModule(BaseModule):
                 last = self._last_heartbeat.get(module)
                 elapsed = (now - last) if last is not None else now - self._started_at
                 missed = max(0, int(elapsed // self._check_interval_s) - 1)
-                if missed > self._allowed_missed_heartbeats and module not in self._unhealthy:
+                if (
+                    missed > self._allowed_missed_heartbeats
+                    and module not in self._unhealthy
+                ):
                     self._unhealthy.add(module)
                     outages.append((module, missed))
 
@@ -145,7 +150,8 @@ class MonitoringModule(BaseModule):
             0, int(settings.get("allowed_missed_heartbeats", 1))
         )
         self._check_interval_s = max(
-            0.1, float((configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0))
+            0.1,
+            float((configuration or {}).get("heartbeat", {}).get("hb_freq_s", 10.0)),
         )
         self._started_at = time.monotonic()
         self._sensor_checks = {}
@@ -159,14 +165,23 @@ class MonitoringModule(BaseModule):
                 minimum = check.get("min")
                 maximum = check.get("max")
                 if minimum is None and maximum is None:
-                    logger.warning("Ignoring empty check for %s/%s", sensor_name, measurement)
+                    logger.warning(
+                        "Ignoring empty check for %s/%s", sensor_name, measurement
+                    )
                     continue
                 try:
-                    bounds = (None if minimum is None else float(minimum), None if maximum is None else float(maximum))
+                    bounds = (
+                        None if minimum is None else float(minimum),
+                        None if maximum is None else float(maximum),
+                    )
                 except (TypeError, ValueError):
-                    logger.warning("Ignoring invalid check for %s/%s", sensor_name, measurement)
+                    logger.warning(
+                        "Ignoring invalid check for %s/%s", sensor_name, measurement
+                    )
                     continue
-                self._sensor_checks.setdefault((sensor_name, measurement), []).append(bounds)
+                self._sensor_checks.setdefault((sensor_name, measurement), []).append(
+                    bounds
+                )
         if self._monitor_thread is not None and self._monitor_thread.is_alive():
             logger.debug("Monitoring worker is already running")
             return

@@ -4,7 +4,9 @@ import logging
 
 from muninn_prototype.modules.adapters.sensor_adapter import SensorAdapter
 from muninn_prototype.modules.adapters.bme680_sensor_adapter import BME680SensorAdapter
-from muninn_prototype.modules.adapters.emc2101_sensor_adapter import EMC2101SensorAdapter
+from muninn_prototype.modules.adapters.emc2101_sensor_adapter import (
+    EMC2101SensorAdapter,
+)
 from muninn_prototype.modules.adapters.ina219_sensor_adapter import INA219SensorAdapter
 
 
@@ -44,5 +46,7 @@ def build_sensor_adapter(sensor_name: str) -> SensorAdapter | None:
 
         return INA219SensorAdapter()
 
-    logger.warning("Skipping sensor %s because no adapter matches that name", sensor_name)
+    logger.warning(
+        "Skipping sensor %s because no adapter matches that name", sensor_name
+    )
     return None
