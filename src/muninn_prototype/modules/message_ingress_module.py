@@ -40,6 +40,9 @@ class MessageIngressModule(BaseModule):
         if self._adapter is None:
             pub.sendMessage(topic("errors"), message="No message ingress adapter available", error_code="ingress_unavailable")
             return
+        if self._thread is not None and self._thread.is_alive():
+            logger.debug("Message ingress worker is already running")
+            return
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._adapter.receive_loop, args=(self._on_message, self._stop_event), daemon=True, name="MessageIngressModule")
         self._thread.start()
@@ -47,5 +50,16 @@ class MessageIngressModule(BaseModule):
 
     def shutdown(self) -> None:
         self._stop_event.set()
-        if self._adapter is not None:
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
+
+        # Adapters that block in an external API may need an explicit close to
+        # wake their receive loop. The normal path above avoids closing a
+        # socket from a thread that does not own it.
+        if thread is not None and thread.is_alive() and self._adapter is not None:
             self._adapter.close()
+            thread.join(timeout=1.0)
+
+        if thread is None or not thread.is_alive():
+            self._thread = None
