@@ -82,6 +82,7 @@ class OpticsModule(BaseModule):
         self._camera, self._configured_camera = camera, camera is not None
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
+        self._photo_thread: threading.Thread | None = None
         self._fps, self._width, self._height, self._frame_id = 0.2, 640, 480, 0
         self._full_width, self._full_height = 4056, 3040
         self._capture_lock = threading.Lock()
@@ -136,13 +137,24 @@ class OpticsModule(BaseModule):
             return
         if command != self._capture_command:
             return
+        if self._photo_thread is not None and self._photo_thread.is_alive():
+            logger.warning("Skipped full-resolution photo command while capture is in progress")
+            return
+        self._photo_thread = threading.Thread(
+            target=self._capture_photo_worker,
+            daemon=True,
+            name="OpticsModule:FullResolutionPhoto",
+        )
+        self._photo_thread.start()
+
+    def _capture_photo_worker(self) -> None:
         try:
             self.capture_full_res_photo()
         except Exception:
             logger.exception("Failed to capture full-resolution photo")
             pub.sendMessage(topic("status"), message="photo_capture_failed")
-            return
-        pub.sendMessage(topic("status"), message="photo_capture_succeeded")
+        else:
+            pub.sendMessage(topic("status"), message="photo_capture_succeeded")
 
     def start_feed(self) -> None:
         with self._feed_lock:
@@ -234,9 +246,16 @@ class OpticsModule(BaseModule):
 
     def shutdown(self) -> None:
         self.stop_feed()
+        photo_thread = self._photo_thread
+        if photo_thread is not None and photo_thread is not threading.current_thread():
+            photo_thread.join(timeout=2.0)
+            if photo_thread.is_alive():
+                logger.error("Full-resolution photo thread did not stop within the shutdown timeout")
+            else:
+                self._photo_thread = None
         if self._command_subscribed:
             pub.unsubscribe(self._on_command, COMMAND_TOPIC)
             self._command_subscribed = False
-        if self._camera is not None and (self._thread is None or not self._thread.is_alive()):
+        if self._camera is not None and (self._thread is None or not self._thread.is_alive()) and (self._photo_thread is None or not self._photo_thread.is_alive()):
             self._camera.close()
             self._camera = None
