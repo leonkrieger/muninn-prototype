@@ -91,3 +91,4 @@ class FanModule(BaseModule):
             except Exception:
                 logger.exception("Failed to stop EMC2101 fan during shutdown")
         self._controller = None
+        super().shutdown()

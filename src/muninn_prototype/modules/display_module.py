@@ -61,9 +61,15 @@ class DisplayModule(BaseModule):
         pub.sendMessage(DISPLAY_TOPIC, text=" " * DISPLAY_WIDTH)
 
     def shutdown(self) -> None:
+        if self._subscribed:
+            pub.unsubscribe(self._on_display_message, DISPLAY_TOPIC)
+            pub.unsubscribe(self._on_status_message, STATUS_TOPIC)
+            self._subscribed = False
         if self._clear_button is not None:
             self._clear_button.close()
             self._clear_button = None
+        self._available = False
+        super().shutdown()
 
     def _on_status_message(self, message: Any = "", status: Any | None = None,
                            error_code: Any | None = None, **kwargs: Any) -> None:
