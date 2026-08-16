@@ -1,12 +1,14 @@
-import logging
 import inspect
+import logging
 import threading
 import time
+
 from pubsub import pub
+
+from muninn_prototype.config_validation import validate_configuration
 from muninn_prototype.modules import MODULES
 from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.topic_config import topic
-from muninn_prototype.config_validation import validate_configuration
 
 logger = logging.getLogger(__name__)
 

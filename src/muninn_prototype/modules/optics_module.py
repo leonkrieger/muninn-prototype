@@ -1,16 +1,19 @@
 from __future__ import annotations
+
 import io
 import json
 import logging
 import threading
 from dataclasses import dataclass
-from datetime import datetime, timezone
-from typing import Any, Protocol
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, Protocol
+
 from pubsub import pub
-from muninn_prototype.modules.base_module import BaseModule
+
 from muninn_prototype.modules.backup_module import _configured_csv_path
 from muninn_prototype.modules.backup_retention import get_retention
+from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.command_events import COMMAND_TOPIC, load_commands
 from muninn_prototype.modules.topic_config import topic
 
@@ -228,7 +231,7 @@ class OpticsModule(BaseModule):
                     if self._save_feed_images and not self._retention.backup_enabled:
                         raise OSError("Backup storage is critically full")
                     image = self._camera.capture_jpeg()
-                    timestamp = datetime.now(timezone.utc)
+                    timestamp = datetime.now(UTC)
                     if self._save_feed_images:
                         self._save_feed_image(image, timestamp)
                 pub.sendMessage(
@@ -267,7 +270,7 @@ class OpticsModule(BaseModule):
         if self._camera is None or self._images_path is None:
             raise RuntimeError("Optics module is not initialized")
 
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         assert self._retention is not None
         with self._retention.lock, self._capture_lock:
             if not self._retention.backup_enabled:

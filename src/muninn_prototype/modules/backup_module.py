@@ -1,23 +1,20 @@
 from __future__ import annotations
 
 import csv
-import json
 import logging
-import os
 import queue
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from pubsub import pub
 
-from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
-from muninn_prototype.utils.get_project_root import get_project_root
-from muninn_prototype.modules.base_module import BaseModule
-from muninn_prototype.modules.topic_config import topic
 from muninn_prototype.modules.backup_retention import get_retention
-
+from muninn_prototype.modules.base_module import BaseModule
+from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
+from muninn_prototype.modules.topic_config import topic
+from muninn_prototype.utils.get_project_root import get_project_root
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +32,7 @@ _CSV_FIELDNAMES = [
 
 def _default_csv_path() -> Path:
     project_root = get_project_root(Path(__file__).resolve())
-    created_at = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    created_at = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     return project_root / "backups" / f"readings-{created_at}.csv"
 
 
@@ -100,7 +97,7 @@ class BackupModule(BaseModule):
             with self._retention.lock, self._csv_lock:
                 if not self._retention.backup_enabled:
                     return
-                partition = reading.timestamp.astimezone(timezone.utc).strftime(
+                partition = reading.timestamp.astimezone(UTC).strftime(
                     "%Y%m%d"
                 )
                 self._csv_path = (

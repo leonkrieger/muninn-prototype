@@ -3,8 +3,9 @@
 import tomllib
 from pathlib import Path
 
-from .topic_config import topic
 from muninn_prototype.utils.get_project_root import get_project_root
+
+from .topic_config import topic
 
 COMMAND_TOPIC = topic("commands")
 

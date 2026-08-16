@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from muninn_prototype.modules.adapters.sensor_adapter import SensorAdapter
@@ -52,7 +52,7 @@ class INA219SensorAdapter(SensorAdapter):
 
         return [
             SensorReading(
-                timestamp=datetime.now(timezone.utc),
+                timestamp=datetime.now(UTC),
                 measurement="capacity",
                 unit="percent",
                 value=capacity,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 
@@ -78,7 +79,7 @@ class RetentionConfig(StrictModel):
     images: ImageRetentionConfig
 
     @model_validator(mode="after")
-    def valid_watermarks(self) -> "RetentionConfig":
+    def valid_watermarks(self) -> RetentionConfig:
         if self.low_watermark_percent >= self.high_watermark_percent:
             raise ValueError(
                 "low_watermark_percent must be less than high_watermark_percent"
@@ -106,7 +107,7 @@ class SensorCheckConfig(StrictModel):
     max: float
 
     @model_validator(mode="after")
-    def valid_range(self) -> "SensorCheckConfig":
+    def valid_range(self) -> SensorCheckConfig:
         if self.min >= self.max:
             raise ValueError("min must be less than max")
         return self
@@ -136,7 +137,7 @@ class Configuration(StrictModel):
     sensors: list[SensorConfig]
 
     @model_validator(mode="after")
-    def unique_sensor_names(self) -> "Configuration":
+    def unique_sensor_names(self) -> Configuration:
         names = [sensor.name for sensor in self.sensors]
         if len(names) != len(set(names)):
             raise ValueError("sensor names must be unique")

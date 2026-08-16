@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
-from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
 from muninn_prototype.modules.adapters.sensor_adapter import SensorAdapter
+from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
 
 
 class BME680SensorAdapter(SensorAdapter):
@@ -47,7 +47,7 @@ class BME680SensorAdapter(SensorAdapter):
     def read(self, i2c_address: int) -> list[SensorReading]:
         sensor = self._get_sensor(i2c_address)
 
-        timestamp = datetime.now(timezone.utc)
+        timestamp = datetime.now(UTC)
         return [
             SensorReading(
                 timestamp=timestamp,

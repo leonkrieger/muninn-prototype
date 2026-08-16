@@ -1,5 +1,5 @@
-from pathlib import Path
 import tomllib
+from pathlib import Path
 
 from muninn_prototype.utils.get_project_root import get_project_root
 

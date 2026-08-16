@@ -8,9 +8,10 @@ from pathlib import Path
 from typing import Any
 
 from pubsub import pub
-from .topic_config import topic
 
 from muninn_prototype.modules.base_module import BaseModule
+
+from .topic_config import topic
 
 logger = logging.getLogger(__name__)
 

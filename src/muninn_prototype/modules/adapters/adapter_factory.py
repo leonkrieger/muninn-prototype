@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import logging
 
-from muninn_prototype.modules.adapters.sensor_adapter import SensorAdapter
 from muninn_prototype.modules.adapters.bme680_sensor_adapter import BME680SensorAdapter
 from muninn_prototype.modules.adapters.emc2101_sensor_adapter import (
     EMC2101SensorAdapter,
 )
 from muninn_prototype.modules.adapters.ina219_sensor_adapter import INA219SensorAdapter
-
+from muninn_prototype.modules.adapters.sensor_adapter import SensorAdapter
 
 logger = logging.getLogger(__name__)
 

@@ -2,18 +2,17 @@ from __future__ import annotations
 
 import logging
 import threading
-from datetime import datetime, timezone
 from typing import Any
 
 from pubsub import pub
-from .command_events import COMMAND_TOPIC
-from .topic_config import topic
 
 from muninn_prototype.modules import base_module
 from muninn_prototype.modules.adapters.adapter_factory import build_sensor_adapter
 from muninn_prototype.modules.dataclasses.sensor_config import SensorConfig
 from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
 
+from .command_events import COMMAND_TOPIC
+from .topic_config import topic
 
 logger = logging.getLogger(__name__)
 
@@ -22,10 +21,7 @@ def _is_missing_i2c_device_error(error: Exception) -> bool:
     if isinstance(error, ValueError) and "No I2C device at address" in str(error):
         return True
 
-    if isinstance(error, OSError) and error.errno in {5, 121}:
-        return True
-
-    return False
+    return bool(isinstance(error, OSError) and error.errno in {5, 121})
 
 
 def _sensor_address(sensor_config: dict[str, Any]) -> int:

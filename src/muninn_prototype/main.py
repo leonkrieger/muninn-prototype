@@ -1,13 +1,13 @@
 import logging
-import tomllib
 import signal
 import threading
 import time
-
-from pathlib import Path
+import tomllib
 from datetime import datetime
-from muninn_prototype.utils.get_project_root import get_project_root
+from pathlib import Path
+
 from muninn_prototype.config_validation import validate_configuration
+from muninn_prototype.utils.get_project_root import get_project_root
 
 root = get_project_root(Path(__file__).resolve())
 with open(root / "config" / "defaults.toml", "rb") as defaults_file:

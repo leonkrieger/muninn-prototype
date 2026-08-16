@@ -6,7 +6,7 @@ import json
 import logging
 import signal
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import zmq
@@ -23,7 +23,7 @@ IMAGE_TOPICS = {
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _image_extension(data: bytes, declared: str | None = None) -> str:

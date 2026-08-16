@@ -15,11 +15,10 @@ from muninn_prototype.modules.adapters.message_egress_adapter import (
 from muninn_prototype.modules.adapters.message_egress_adapter_factory import (
     build_message_egress_adapter,
 )
+from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.dataclasses.sensor_reading import SensorReading
 from muninn_prototype.modules.optics_module import ImageFrame
-from muninn_prototype.modules.base_module import BaseModule
 from muninn_prototype.modules.topic_config import topic as configured_topic
-
 
 logger = logging.getLogger(__name__)
 

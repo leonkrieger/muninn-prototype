@@ -5,8 +5,8 @@ from typing import Any
 from pubsub import pub
 
 from .base_module import BaseModule
-from .message_ingress_module import InboundMessage
 from .command_events import COMMAND_TOPIC, load_commands
+from .message_ingress_module import InboundMessage
 from .topic_config import topic
 
 

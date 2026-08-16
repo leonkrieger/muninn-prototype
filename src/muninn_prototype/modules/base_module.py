@@ -1,8 +1,9 @@
-from pubsub import pub
-from .topic_config import topic
-import threading
-import time
 import logging
+import threading
+
+from pubsub import pub
+
+from .topic_config import topic
 
 logger = logging.getLogger(__name__)
 
