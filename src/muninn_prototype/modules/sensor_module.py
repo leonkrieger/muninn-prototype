@@ -99,6 +99,7 @@ class SensorModule(base_module.BaseModule):
         self._command_subscribed = False
         self._reading_id_lock = threading.Lock()
         self._next_reading_id = 0
+        self._suit_id = ""
 
     def _allocate_reading_id(self) -> int:
         with self._reading_id_lock:
@@ -107,6 +108,7 @@ class SensorModule(base_module.BaseModule):
 
     def initiate(self, configuration: dict[str, Any] | None = None):
         super().initiate()
+        self._suit_id = str((configuration or {}).get("suit", {}).get("suitID", ""))
 
         if not self._configured_sensors:
             self._sensors = load_default_sensors(configuration)
@@ -243,6 +245,7 @@ class SensorModule(base_module.BaseModule):
                     reading = SensorReading(
                         timestamp=sensor_reading.timestamp,
                         reading_id=self._allocate_reading_id(),
+                        suit_id=self._suit_id,
                         sensor_name=sensor.name,
                         sensor_type=sensor.sensor,
                         measurement=sensor_reading.measurement,

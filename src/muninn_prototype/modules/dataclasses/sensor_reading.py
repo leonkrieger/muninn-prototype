@@ -9,6 +9,7 @@ from typing import Any
 class SensorReading:
     timestamp: datetime
     reading_id: int = 0
+    suit_id: str = ""
     sensor_name: str = ""
     sensor_type: str = ""
     measurement: str = ""

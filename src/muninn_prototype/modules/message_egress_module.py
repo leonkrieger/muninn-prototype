@@ -83,6 +83,7 @@ def _reading_to_payload(reading: SensorReading) -> dict[str, Any]:
     return {
         "reading_id": reading.reading_id,
         "timestamp": timestamp_value,
+        "suit_id": reading.suit_id,
         "sensor_name": reading.sensor_name,
         "sensor_type": reading.sensor_type,
         "measurement": reading.measurement,

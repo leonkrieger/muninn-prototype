@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 _CSV_FIELDNAMES = [
     "reading_id",
     "timestamp",
+    "suit_id",
     "sensor_name",
     "sensor_type",
     "measurement",
@@ -59,6 +60,7 @@ def _reading_to_row(reading: SensorReading) -> dict[str, str]:
     return {
         "reading_id": str(reading.reading_id),
         "timestamp": reading.timestamp.isoformat(),
+        "suit_id": reading.suit_id,
         "sensor_name": reading.sensor_name,
         "sensor_type": reading.sensor_type,
         "measurement": reading.measurement,
