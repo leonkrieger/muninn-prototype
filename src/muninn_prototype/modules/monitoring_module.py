@@ -32,8 +32,29 @@ class MonitoringModule(BaseModule):
             tuple[str, str], list[tuple[float | None, float | None]]
         ] = {}
         self._sensor_warnings: set[tuple[str, str]] = set()
+        self._sensor_last_reading: dict[str, float] = {}
+        self._sensor_unhealthy: set[str] = set()
+        self._sensor_poll_intervals: dict[str, float] = {}
 
     def _on_reading(self, reading: Any) -> None:
+        now = time.monotonic()
+        sensor_name = str(reading.sensor_name)
+        with self._lock:
+            self._sensor_last_reading[sensor_name] = now
+            recovered = sensor_name in self._sensor_unhealthy
+            if recovered:
+                self._sensor_unhealthy.remove(sensor_name)
+
+        if recovered:
+            pub.sendMessage(
+                "warning",
+                module=sensor_name,
+                message=f"Sensor {sensor_name} readings resumed",
+                recovered=True,
+                missed_heartbeats=0,
+                allowed_missed_heartbeats=self._allowed_missed_heartbeats,
+            )
+
         key = (reading.sensor_name, reading.measurement)
         with self._lock:
             checks = tuple(self._sensor_checks.get(key, ()))
@@ -124,6 +145,7 @@ class MonitoringModule(BaseModule):
     def _check_health(self) -> None:
         now = time.monotonic()
         outages: list[tuple[str, int]] = []
+        sensor_outages: list[tuple[str, float]] = []
         with self._lock:
             for module in self._expected_modules:
                 last = self._last_heartbeat.get(module)
@@ -136,9 +158,37 @@ class MonitoringModule(BaseModule):
                     self._unhealthy.add(module)
                     outages.append((module, missed))
 
+            for sensor_name, last_reading in self._sensor_last_reading.items():
+                poll_interval = self._sensor_poll_intervals.get(sensor_name)
+                if poll_interval is None:
+                    continue
+                overdue_by = now - last_reading
+                # Allow one missed polling interval before reporting an outage.
+                if overdue_by > poll_interval * 2 and sensor_name not in self._sensor_unhealthy:
+                    self._sensor_unhealthy.add(sensor_name)
+                    sensor_outages.append((sensor_name, overdue_by))
+
         for module, missed in outages:
             logger.warning("Module %s missed %d heartbeats", module, missed)
             self._publish_outage(module, missed)
+
+        for sensor_name, overdue_by in sensor_outages:
+            logger.warning(
+                "Sensor %s has not produced a reading for %.1f seconds",
+                sensor_name,
+                overdue_by,
+            )
+            pub.sendMessage(
+                "warning",
+                module=sensor_name,
+                message=(
+                    f"Sensor {sensor_name} readings are overdue by "
+                    f"{overdue_by:.1f} seconds"
+                ),
+                recovered=False,
+                missed_heartbeats=0,
+                allowed_missed_heartbeats=self._allowed_missed_heartbeats,
+            )
 
     def _monitor(self) -> None:
         while not self._stop_event.wait(self._check_interval_s):
@@ -157,8 +207,17 @@ class MonitoringModule(BaseModule):
         self._started_at = time.monotonic()
         self._sensor_checks = {}
         self._sensor_warnings.clear()
+        self._sensor_last_reading.clear()
+        self._sensor_unhealthy.clear()
+        self._sensor_poll_intervals = {}
         for sensor in configuration.get("sensors", []):
             sensor_name = str(sensor.get("name", "")).strip()
+            try:
+                poll_hz = float(sensor.get("poll_hz", 0))
+                if sensor_name and poll_hz > 0:
+                    self._sensor_poll_intervals[sensor_name] = 1.0 / poll_hz
+            except (TypeError, ValueError):
+                logger.warning("Ignoring invalid polling frequency for %s", sensor_name)
             for check in sensor.get("checks", []):
                 measurement = str(check.get("measurement", "")).strip()
                 if not sensor_name or not measurement:
