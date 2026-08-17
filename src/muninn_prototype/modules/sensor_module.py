@@ -113,6 +113,28 @@ class SensorModule(base_module.BaseModule):
         if not self._configured_sensors:
             self._sensors = load_default_sensors(configuration)
 
+        available_sensors: list[SensorConfig] = []
+        for sensor in self._sensors:
+            try:
+                sensor.adapter.read(sensor.i2c_address)
+            except Exception as error:
+                logger.error(
+                    "Sensor %s at address 0x%02X is unavailable during initialization: %s",
+                    sensor.name,
+                    sensor.i2c_address,
+                    error,
+                )
+                pub.sendMessage(
+                    topic("warning"),
+                    module=sensor.name,
+                    message=f"Sensor {sensor.name} is unavailable",
+                    recovered=False,
+                )
+                continue
+            available_sensors.append(sensor)
+
+        self._sensors = available_sensors
+
         if not self._command_subscribed:
             pub.subscribe(self._on_command, COMMAND_TOPIC)
             self._command_subscribed = True
@@ -133,29 +155,6 @@ class SensorModule(base_module.BaseModule):
             self._stop_event.clear()
             self._sensor_threads = []
             for sensor in self._sensors:
-                try:
-                    # Adapter construction is lazy. Perform the first I2C access synchronously before starting polling thread
-                    sensor.adapter.read(sensor.i2c_address)
-                except Exception as error:
-                    if _is_missing_i2c_device_error(error):
-                        logger.error(
-                            "Skipping sensor %s at address 0x%02X because the device is unavailable: %s",
-                            sensor.name,
-                            sensor.i2c_address,
-                            error,
-                        )
-                    else:
-                        logger.error(
-                            "Skipping sensor %s at address 0x%02X because initialization failed: %s",
-                            sensor.name,
-                            sensor.i2c_address,
-                            error,
-                        )
-                    pub.sendMessage(
-                        topic("errors"), message="", error_code="sensor_unavailable"
-                    )
-                    continue
-
                 sensor_thread = threading.Thread(
                     target=self._poll_sensor,
                     args=(sensor,),
