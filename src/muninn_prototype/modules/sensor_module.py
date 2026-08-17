@@ -259,7 +259,7 @@ class SensorModule(base_module.BaseModule):
                         reading.unit,
                         reading.value,
                     )
-                pub.sendMessage(topic("readings"), reading=reading)
+                    pub.sendMessage(topic("readings"), reading=reading)
 
             if self._stop_event.wait(poll_interval):
                 break
