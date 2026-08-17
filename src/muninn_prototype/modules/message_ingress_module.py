@@ -34,7 +34,6 @@ class MessageIngressModule(BaseModule):
         )
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
-        settings = (configuration or {}).get("ingress", {})
         self._adapter = self._adapter or build_message_ingress_adapter(configuration)
         if self._adapter is None:
             pub.sendMessage(
