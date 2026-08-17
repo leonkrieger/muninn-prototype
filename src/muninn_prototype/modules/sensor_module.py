@@ -66,7 +66,7 @@ def load_default_sensors(configuration: dict[str, Any] | None) -> list[SensorCon
                 sensor_name,
             )
             continue
-        if poll_hz >= 10:
+        if poll_hz > 10:
             logger.warning(
                 "Skipping sensor %s because poll_hz must be smaller than or equal 10",
                 sensor_name,
@@ -213,7 +213,7 @@ class SensorModule(base_module.BaseModule):
             )
             return
 
-        if sensor.poll_hz >= 10:
+        if sensor.poll_hz > 10:
             logger.warning(
                 "Skipping sensor %s because poll_hz must be smaller than or equal 10",
                 sensor.name,
