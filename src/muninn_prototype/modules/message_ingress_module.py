@@ -35,9 +35,6 @@ class MessageIngressModule(BaseModule):
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
         settings = (configuration or {}).get("ingress", {})
-        if not bool(settings.get("enabled", False)):
-            logger.info("Message ingress is disabled")
-            return
         self._adapter = self._adapter or build_message_ingress_adapter(configuration)
         if self._adapter is None:
             pub.sendMessage(

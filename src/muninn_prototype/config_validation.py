@@ -26,7 +26,6 @@ class EgressConfig(StrictModel):
 
 
 class IngressConfig(StrictModel):
-    enabled: bool
     transport: str = Field(min_length=1)
     endpoint: str = Field(min_length=1)
     topic: str
