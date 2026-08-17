@@ -46,7 +46,7 @@ partition = "day"
 policy = "keep_newest"
 high_watermark_percent = 90
 low_watermark_percent = 80
-minimum_free_bytes = 104857600
+minimum_free_bytes = 6442450944
 prune_every = 2
 
 [backup.retention.images]
