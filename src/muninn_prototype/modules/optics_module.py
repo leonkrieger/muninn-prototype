@@ -182,9 +182,6 @@ class OpticsModule(BaseModule):
             self.capture_full_res_photo()
         except Exception:
             logger.exception("Failed to capture full-resolution photo")
-            pub.sendMessage(topic("status"), message="photo_capture_failed")
-        else:
-            pub.sendMessage(topic("status"), message="photo_capture_succeeded")
 
     def start_feed(self) -> None:
         with self._feed_lock:

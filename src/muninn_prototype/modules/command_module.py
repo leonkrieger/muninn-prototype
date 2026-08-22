@@ -62,8 +62,3 @@ class CommandModule(BaseModule):
             pub.unsubscribe(self._on_message, topic("inbound_messages"))
             self._subscribed = False
         super().shutdown()
-
-
-def initiate() -> None:
-    """Backward-compatible command-module entry point."""
-    pub.sendMessage(topic("status"), message="ok")

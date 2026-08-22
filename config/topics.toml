@@ -1,7 +1,6 @@
 [topics]
 commands = "module_commands"
 inbound_messages = "messages"
-status = "status"
 errors = "error"
 heartbeats = "heartbeat"
 display = "display"
