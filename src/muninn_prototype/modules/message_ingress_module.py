@@ -28,9 +28,10 @@ class MessageIngressModule(BaseModule):
         self._thread: threading.Thread | None = None
         self._stop_event = threading.Event()
 
-    def _on_message(self, topic: str, payload: str) -> None:
+    def _on_message(self, message_topic: str, payload: str) -> None:
         pub.sendMessage(
-            topic("inbound_messages"), message=InboundMessage(topic, payload)
+            topic("inbound_messages"),
+            message=InboundMessage(message_topic, payload),
         )
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
