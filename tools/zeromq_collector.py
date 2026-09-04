@@ -5,12 +5,13 @@ import base64
 import json
 import logging
 import signal
-import sys
 import threading
+import time
 from collections import defaultdict, deque
 from datetime import UTC, datetime
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import zmq
 
 LOG = logging.getLogger("muninn.zeromq_collector")
@@ -63,6 +64,10 @@ class Collector:
         self.stop_event = threading.Event()
         self.graph = graph
         self.history: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=48))
+        self.last_graph_update = 0.0
+        self.graph_figure = None
+        self.graph_axis = None
+        self.graph_lines = {}
 
     def _update_graph(self, payload: object) -> None:
         if not self.graph or not isinstance(payload, dict):
@@ -77,16 +82,33 @@ class Collector:
         key = f"{name}/{measurement}"
         self.history[key].append(number)
 
-        lines = ["\033[2J\033[H Muninn telemetry (Ctrl-C to stop)\n"]
-        for key, values in self.history.items():
-            low, high = min(values), max(values)
-            spread = high - low or 1.0
-            bars = "▁▂▃▄▅▆▇█"
-            chart = "".join(bars[min(7, int((value - low) / spread * 7))] for value in values)
-            latest = values[-1]
-            lines.append(f"{key:28} {chart}  {latest:.3f} {unit}\n")
-        sys.stdout.write("".join(lines))
-        sys.stdout.flush()
+        now = time.monotonic()
+        if now - self.last_graph_update < 2.0:
+            return
+        self.last_graph_update = now
+
+        if self.graph_figure is None:
+            plt.ion()
+            self.graph_figure, self.graph_axis = plt.subplots(figsize=(10, 5))
+            self.graph_axis.set_title("Muninn telemetry")
+            self.graph_axis.set_xlabel("samples")
+            self.graph_axis.set_ylabel(unit)
+            self.graph_axis.grid(True)
+
+        for series_key, values in self.history.items():
+            points = list(values)
+            line = self.graph_lines.get(series_key)
+            if line is None:
+                (line,) = self.graph_axis.plot([], [], label=series_key)
+                self.graph_lines[series_key] = line
+                self.graph_axis.legend(loc="upper left")
+            line.set_data(range(len(points)), points)
+
+        self.graph_axis.relim()
+        self.graph_axis.autoscale_view()
+        self.graph_figure.canvas.draw_idle()
+        self.graph_figure.canvas.flush_events()
+        plt.pause(0.001)
 
     def _save_image(
         self, topic: str, payload: bytes, declared: str | None = None
