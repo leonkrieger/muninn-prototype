@@ -126,9 +126,7 @@ class SensorModule(base_module.BaseModule):
                 )
                 pub.sendMessage(
                     topic("warning"),
-                    module=sensor.name,
                     message=f"Sensor {sensor.name} is unavailable",
-                    recovered=False,
                 )
                 continue
             available_sensors.append(sensor)

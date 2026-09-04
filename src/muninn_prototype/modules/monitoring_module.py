@@ -48,11 +48,7 @@ class MonitoringModule(BaseModule):
         if recovered:
             pub.sendMessage(
                 "warning",
-                module=sensor_name,
                 message=f"Sensor {sensor_name} readings resumed",
-                recovered=True,
-                missed_heartbeats=0,
-                allowed_missed_heartbeats=self._allowed_missed_heartbeats,
             )
 
         key = (reading.sensor_name, reading.measurement)
@@ -85,19 +81,17 @@ class MonitoringModule(BaseModule):
             if maximum is not None:
                 limits.append(f"max {maximum}")
         recovered = not violated
+        message = (
+            f"Sensor {reading.sensor_name} {reading.measurement} value "
+            f"{reading.value} {reading.unit} "
+            f"{'recovered within' if recovered else 'exceeds'} {' and '.join(limits)}"
+        )
+        pub.sendMessage("warning", message=message)
         pub.sendMessage(
-            "warning",
-            module=reading.sensor_name,
+            "temperature_warning",
             measurement=reading.measurement,
             value=reading.value,
-            message=(
-                f"Sensor {reading.sensor_name} {reading.measurement} value "
-                f"{reading.value} {reading.unit} "
-                f"{'recovered within' if recovered else 'exceeds'} {' and '.join(limits)}"
-            ),
             recovered=recovered,
-            missed_heartbeats=0,
-            allowed_missed_heartbeats=self._allowed_missed_heartbeats,
         )
 
     def configure_expected_modules(self, module_names: list[str]) -> None:
@@ -125,21 +119,16 @@ class MonitoringModule(BaseModule):
         if recovered:
             pub.sendMessage(
                 "warning",
-                module=module,
                 message=f"Module {module} recovered heartbeat reporting",
-                recovered=True,
-                missed_heartbeats=0,
-                allowed_missed_heartbeats=self._allowed_missed_heartbeats,
             )
 
     def _publish_outage(self, module: str, missed: int) -> None:
         pub.sendMessage(
             "warning",
-            module=module,
-            message=f"Module {module} missed {missed} heartbeats",
-            recovered=False,
-            missed_heartbeats=missed,
-            allowed_missed_heartbeats=self._allowed_missed_heartbeats,
+            message=(
+                f"Module {module} missed {missed} heartbeats "
+                f"(allowed: {self._allowed_missed_heartbeats})"
+            ),
         )
 
     def _check_health(self) -> None:
@@ -180,14 +169,10 @@ class MonitoringModule(BaseModule):
             )
             pub.sendMessage(
                 "warning",
-                module=sensor_name,
                 message=(
                     f"Sensor {sensor_name} readings are overdue by "
                     f"{overdue_by:.1f} seconds"
                 ),
-                recovered=False,
-                missed_heartbeats=0,
-                allowed_missed_heartbeats=self._allowed_missed_heartbeats,
             )
 
     def _monitor(self) -> None:

@@ -39,12 +39,9 @@ class FanModule(BaseModule):
 
     def _on_warning(
         self,
-        module: str,
-        message: str,
-        recovered: bool,
         measurement: str | None = None,
-        missed_heartbeats: int = 0,
-        allowed_missed_heartbeats: int = 0,
+        value: Any = None,
+        recovered: bool = False,
         **_: Any,
     ) -> None:
         if measurement != "temperature" or self._controller is None:
@@ -80,7 +77,7 @@ class FanModule(BaseModule):
             # EMC2101 adress is fixed
             self._controller = EMC2101(board.I2C())
             self._controller.manual_fan_speed = self._normal_speed
-            pub.subscribe(self._on_warning, "warning")
+            pub.subscribe(self._on_warning, "temperature_warning")
             pub.subscribe(self._on_command, topic("commands"))
             self._subscribed = True
             logger.info(
@@ -94,7 +91,7 @@ class FanModule(BaseModule):
 
     def shutdown(self) -> None:
         if self._subscribed:
-            pub.unsubscribe(self._on_warning, "warning")
+            pub.unsubscribe(self._on_warning, "temperature_warning")
             self._subscribed = False
         pub.unsubscribe(self._on_command, topic("commands"))
         if self._controller is not None:
