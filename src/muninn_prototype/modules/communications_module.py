@@ -29,6 +29,8 @@ class CommunicationsModule(BaseModule):
         self._executable = "talkkonnect"
         self._config_path = ""
         self._lock = threading.Lock()
+        self._output_threads: list[threading.Thread] = []
+        self._talkkonnect_log: Path | None = None
 
     def _command(self) -> list[str]:
         return [self._executable, "-config", self._config_path]
@@ -54,8 +56,8 @@ class CommunicationsModule(BaseModule):
             process = subprocess.Popen(
                 self._command(),
                 stdin=subprocess.DEVNULL,
-                stdout=None,
-                stderr=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
                 start_new_session=True,
                 env=os.environ.copy(),
             )
@@ -66,8 +68,37 @@ class CommunicationsModule(BaseModule):
             return False
         with self._lock:
             self._process = process
+        self._start_output_reader(process)
         logger.info("Started Talkkonnect (pid %s)", process.pid)
         return True
+
+    def _start_output_reader(self, process: subprocess.Popen[bytes]) -> None:
+        """Separate Talkkonnect output from Muninn terminal stream."""
+        output = process.stdout
+        if output is None:
+            return
+
+        def read_output() -> None:
+            log_file = self._talkkonnect_log
+            if log_file is not None:
+                log_file.parent.mkdir(parents=True, exist_ok=True)
+            with output:
+                for raw_line in iter(output.readline, b""):
+                    line = raw_line.decode(errors="replace").rstrip("\\r\\n")
+                    if not line:
+                        continue
+                    logger.info("[TALKKONNECT] %s", line)
+                    if log_file is not None:
+                        with log_file.open("a", encoding="utf-8") as handle:
+                            handle.write(line + "\\n")
+
+        reader = threading.Thread(
+            target=read_output,
+            daemon=True,
+            name="CommunicationsModule:TalkkonnectOutput",
+        )
+        self._output_threads.append(reader)
+        reader.start()
 
     def _monitor(self) -> None:
         while not self._stop_event.is_set():
@@ -93,6 +124,10 @@ class CommunicationsModule(BaseModule):
             return
         self._executable = str(settings.get("executable", "talkkonnect")).strip()
         self._config_path = str(settings.get("config_path", "")).strip()
+        log_path = str(settings.get("output_log", "logs/talkkonnect.log")).strip()
+        self._talkkonnect_log = Path(log_path) if log_path else None
+        if self._talkkonnect_log is not None and not self._talkkonnect_log.is_absolute():
+            self._talkkonnect_log = Path.cwd() / self._talkkonnect_log
         self._restart_delay_s = max(0.1, float(settings.get("restart_delay_s", 10.0)))
         self._startup_grace_s = max(0.0, float(settings.get("startup_grace_s", 2.0)))
         if self._monitor_thread is not None and self._monitor_thread.is_alive():

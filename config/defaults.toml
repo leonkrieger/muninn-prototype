@@ -21,14 +21,15 @@ adapter = "qwiic_alphanumeric"
 hb_freq_s = 10
 
 [monitoring]
-allowed_missed_heartbeats = 1
+allowed_missed_heartbeats = 5
 
 [communications]
 enabled = true
-executable = "/home/admin/talkkonnect/bin/talkkonnect"
+executable = "/home/admin/talkkonnect/dist/talkkonnect"
 config_path = "/home/admin/.config/talkkonnect-delta.xml"
 restart_delay_s = 10
 startup_grace_s = 2
+output_log = "logs/talkkonnect.log"
 
 [optics]
 enabled = true
