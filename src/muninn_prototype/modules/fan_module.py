@@ -43,6 +43,8 @@ class FanModule(BaseModule):
         message: str,
         recovered: bool,
         measurement: str | None = None,
+        missed_heartbeats: int = 0,
+        allowed_missed_heartbeats: int = 0,
         **_: Any,
     ) -> None:
         if measurement != "temperature" or self._controller is None:
