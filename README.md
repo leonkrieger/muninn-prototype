@@ -72,7 +72,7 @@ It is kept in the repository's top-level `tools` directory and is not part of th
 Muninn runtime deployed to the Pi:
 
 ```bash
-python -m pip install .
+python3 -m pip install -r tools/requirements.txt
 python tools/zeromq_collector.py --endpoint tcp://IP:PORT --output ./collected-data
 ```
 Telemetry is appended to `telemetry.jsonl`; image messages are written under
