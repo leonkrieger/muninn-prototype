@@ -5,7 +5,9 @@ import base64
 import json
 import logging
 import signal
+import sys
 import threading
+from collections import defaultdict, deque
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -42,7 +44,13 @@ def _topic_kind(topic: str) -> str:
 
 
 class Collector:
-    def __init__(self, endpoint: str, output: Path, subscriptions: list[str]) -> None:
+    def __init__(
+        self,
+        endpoint: str,
+        output: Path,
+        subscriptions: list[str],
+        graph: bool = True,
+    ) -> None:
         self.endpoint, self.output = endpoint, output
         self.context = zmq.Context()
         self.socket = self.context.socket(zmq.SUB)
@@ -53,6 +61,32 @@ class Collector:
         self.output.mkdir(parents=True, exist_ok=True)
         (self.output / "telemetry.jsonl").touch(exist_ok=True)
         self.stop_event = threading.Event()
+        self.graph = graph
+        self.history: dict[str, deque[float]] = defaultdict(lambda: deque(maxlen=48))
+
+    def _update_graph(self, payload: object) -> None:
+        if not self.graph or not isinstance(payload, dict):
+            return
+        try:
+            number = float(payload["value"])
+        except (KeyError, TypeError, ValueError):
+            return
+        name = str(payload.get("sensor_name", "sensor"))
+        measurement = str(payload.get("measurement", "value"))
+        unit = str(payload.get("unit", ""))
+        key = f"{name}/{measurement}"
+        self.history[key].append(number)
+
+        lines = ["\033[2J\033[H Muninn telemetry (Ctrl-C to stop)\n"]
+        for key, values in self.history.items():
+            low, high = min(values), max(values)
+            spread = high - low or 1.0
+            bars = "▁▂▃▄▅▆▇█"
+            chart = "".join(bars[min(7, int((value - low) / spread * 7))] for value in values)
+            latest = values[-1]
+            lines.append(f"{key:28} {chart}  {latest:.3f} {unit}\n")
+        sys.stdout.write("".join(lines))
+        sys.stdout.flush()
 
     def _save_image(
         self, topic: str, payload: bytes, declared: str | None = None
@@ -95,6 +129,7 @@ class Collector:
         }
         with (self.output / "telemetry.jsonl").open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(record, separators=(",", ":"), default=str) + "\n")
+        self._update_graph(value)
 
     def run(self) -> None:
         LOG.info("Listening on %s; writing to %s", self.endpoint, self.output)
@@ -134,12 +169,15 @@ def main() -> None:
     parser.add_argument(
         "--log-level", default="INFO", choices=["DEBUG", "INFO", "WARNING", "ERROR"]
     )
+    parser.add_argument(
+        "--no-graph", action="store_true", help="Disable the live terminal graph"
+    )
     args = parser.parse_args()
     logging.basicConfig(
         level=getattr(logging, args.log_level),
         format="%(asctime)s %(levelname)s %(message)s",
     )
-    collector = Collector(args.endpoint, args.output, args.subscribe)
+    collector = Collector(args.endpoint, args.output, args.subscribe, graph=not args.no_graph)
     signal.signal(signal.SIGINT, lambda *_: collector.stop_event.set())
     signal.signal(signal.SIGTERM, lambda *_: collector.stop_event.set())
     collector.run()
