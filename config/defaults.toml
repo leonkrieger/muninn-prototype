@@ -41,7 +41,6 @@ save_feed_images = false
 
 [backup]
 csv_path = "backups"
-partition = "day"
 
 [backup.retention]
 policy = "keep_newest"

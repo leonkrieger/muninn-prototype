@@ -75,6 +75,8 @@ class BackupModule(BaseModule):
         super().__init__()
         self._csv_lock = threading.Lock()
         self._csv_path: Path | None = None
+        self._backup_root: Path | None = None
+        self._csv_paths: dict[int, Path] = {}
         self._subscribed = False
         self._retention = None
         self._reading_queue: queue.Queue[SensorReading | None] = queue.Queue(
@@ -99,15 +101,17 @@ class BackupModule(BaseModule):
             with self._retention.lock, self._csv_lock:
                 if not self._retention.backup_enabled:
                     return
-                partition = reading.timestamp.astimezone(UTC).strftime(
-                    "%Y%m%d"
-                )
-                self._csv_path = (
-                    self._csv_path.parent
-                    / f"readings-{partition}-p{reading.priority:02d}.csv"
-                )
-                _ensure_header(self._csv_path)
-                with self._csv_path.open("a", newline="", encoding="utf-8") as csv_file:
+                csv_path = self._csv_paths.get(reading.priority)
+                if csv_path is None:
+                    created_at = datetime.now().strftime("%Y%m%d-%H:%M")
+                    csv_path = (
+                        self._backup_root
+                        / f"readings-{created_at}-p{reading.priority:02d}.csv"
+                    )
+                    self._csv_paths[reading.priority] = csv_path
+                self._csv_path = csv_path
+                _ensure_header(csv_path)
+                with csv_path.open("a", newline="", encoding="utf-8") as csv_file:
                     csv.DictWriter(csv_file, fieldnames=_CSV_FIELDNAMES).writerow(
                         _reading_to_row(reading)
                     )
@@ -126,12 +130,11 @@ class BackupModule(BaseModule):
             )
 
     def initiate(self, configuration: dict[str, Any] | None = None) -> None:
-        self._csv_path = _configured_csv_path(configuration)
-        root = (
-            self._csv_path.parent
-            if self._csv_path.suffix.lower() == ".csv"
-            else self._csv_path
-        )
+        configured_path = _configured_csv_path(configuration)
+        root = configured_path.parent if configured_path.suffix.lower() == ".csv" else configured_path
+        self._backup_root = root
+        self._csv_paths.clear()
+        self._csv_path = configured_path
         root.mkdir(parents=True, exist_ok=True)
         self._retention = get_retention(root, configuration)
         if self._worker is None or not self._worker.is_alive():
